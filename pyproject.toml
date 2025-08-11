@@ -7,7 +7,9 @@ authors = [
     { name = "darkhaniop", email = "72267237+darkhaniop@users.noreply.github.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi>=0.116.1",
+]
 
 [build-system]
 requires = ["uv_build>=0.8.8,<0.9.0"]
