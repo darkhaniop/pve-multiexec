@@ -1,2 +1,1 @@
-def hello() -> str:
-    return "Hello from pve-drop-guest-caches!"
+from .app import app
