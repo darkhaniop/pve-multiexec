@@ -16,6 +16,8 @@ async def root():
 
 @app.get("/nodes")
 async def get_nodes() -> list[PveNode]:
+    """Cluster node index."""
+
     def _get_nodes_in_worker():
         pve_api = create_proxmox_api()
         return pve_api.nodes.get()
@@ -26,6 +28,8 @@ async def get_nodes() -> list[PveNode]:
 
 @app.get("/nodes/{node}/vms", responses={404: {"description": "Unavailable node."}})
 async def get_node_vms(node: Annotated[str, "The cluster node name."]) -> list[PveQemuVm]:
+    """Virtual machine index (per node)."""
+
     def _get_node_qemu_in_worker():
         pve_api = create_proxmox_api()
         return pve_api.nodes(node).qemu.get()

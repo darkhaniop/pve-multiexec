@@ -2,9 +2,11 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 class PveNode(BaseModel):
+    # Node info returned from GET /api2/json/nodes
     node: Annotated[str, Field(min_length=1, description="The cluster node name.")]
     status: Annotated[Literal["unknown", "online", "offline"], Field(description="Node status.")]
 
+    # optional fields
     cpu: Annotated[float | None, Field(default=None, description="CPU utilization.")]
     level: Annotated[str | None, Field(default=None, description="Support level.")]
     maxcpu: Annotated[int | None, Field(default=None, description="Number of available CPUs.")]
@@ -13,27 +15,12 @@ class PveNode(BaseModel):
     ssl_fingerprint: Annotated[str | None, Field(default=None, description="The SSL fingerprint for the node certificate.")]
     uptime: Annotated[int | None, Field(default=None, description="Node uptime in seconds.")]
     
-#   {
-#     "cpu": 0,
-#     "maxdisk": 8589934592,
-#     "serial": 1,
-#     "diskread": 0,
-#     "disk": 0,
-#     "mem": 0,
-#     "diskwrite": 0,
-#     "maxmem": 4294967296,
-#     "vmid": 220000220,
-#     "netin": 0,
-#     "cpus": 4,
-#     "netout": 0,
-#     "status": "stopped",
-#     "uptime": 0,
-#     "name": "experiment220"
-#   }
 class PveQemuVm(BaseModel):
+    # VM info returned from GET /api2/json/nodes/{node}/qemu
     status: Annotated[Literal["stopped", "running"], Field(description="QEMU process status.")]
     vmid: Annotated[int, Field(ge=100, le=999999999, description="The (unique) ID of the VM.")]
 
+    # optional fields
     cpu: Annotated[float | None, Field(default=None, description="Current CPU usage.")]
     cpus: Annotated[float | None, Field(default=None, description="Maximum usable CPUs.")]
     diskread: Annotated[int | None, Field(default=None, description="The amount of bytes the guest read from it's block devices since the guest was started. (Note: This info is not available for all storage types.)")]
