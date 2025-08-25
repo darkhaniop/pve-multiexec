@@ -1,0 +1,37 @@
+from proxmoxer import ProxmoxAPI
+from dataclasses import dataclass
+import queue
+import threading
+import time
+from typing import Callable
+
+
+
+@dataclass
+class WorkerJob:
+    func: Callable[[ProxmoxAPI], bool]
+    done_event: threading.Event
+    exc: Exception | None = None
+
+
+@dataclass
+class WorkerState:
+    stop_requested: threading.Event
+    queue: queue.Queue[WorkerJob]
+    thread: threading.Thread
+    jobs_done: int = 0
+
+
+def _run_worker(state: WorkerState) -> None:
+    time.sleep(2)
+
+
+def create_worker(queue: queue.Queue) -> WorkerState:
+    worker_state = WorkerState(stop_requested=threading.Event(), queue=queue, thread=threading.Thread())
+
+    thread = threading.Thread(target=_run_worker, kwargs={"state": worker_state})
+    worker_state.thread = thread
+
+    thread.start()
+
+    return worker_state
