@@ -1,3 +1,8 @@
+"""
+Workers will be used to keep connections open with "keep-alive" to allow reusing of the
+same connections for consequent requests.
+"""
+
 from proxmoxer import ProxmoxAPI
 from dataclasses import dataclass
 import queue
@@ -23,7 +28,8 @@ class WorkerState:
 
 
 def _run_worker(state: WorkerState) -> None:
-    time.sleep(2)
+    while not state.stop_requested.is_set():
+        time.sleep(2)
 
 
 def create_worker(queue: queue.Queue) -> WorkerState:
