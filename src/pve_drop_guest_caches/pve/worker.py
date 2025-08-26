@@ -1,6 +1,8 @@
 """
 Workers will be used to keep connections open with "keep-alive" to allow reusing of the
-same connections for consequent requests.
+same connections for consequent requests. Under the hood, proxmoxer uses the requests
+library that supports "keep-alive" out-of-the-box, so by reusing a ProxmoxAPI instance,
+we should be able to reuse the connections.
 """
 
 from proxmoxer import ProxmoxAPI
