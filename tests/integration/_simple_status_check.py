@@ -19,9 +19,13 @@ def sent_request(proxmox_api: ProxmoxAPI, node: str) -> None:
     return proxmox_api.nodes(node).status.get()
 
 
-if __name__ == "__main__":
+def main():
     print("quick status check")
 
     proxmox_api = create_proxmox_api()
     response = sent_request(proxmox_api, os.getenv("MY_PVE_NODE", ""))
     print("response:\n", response)
+
+
+if __name__ == "__main__":
+    main()
