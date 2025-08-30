@@ -11,7 +11,11 @@ import queue
 import threading
 import time
 from typing import Callable
+import logging
 
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 @dataclass
@@ -27,11 +31,20 @@ class WorkerState:
     queue: queue.Queue[WorkerJob]
     thread: threading.Thread
     jobs_done: int = 0
+    tick: int = 0
 
 
 def _run_worker(state: WorkerState) -> None:
+    ident = threading.get_ident()
+    logger.debug(f"worker-{ident}: ...")
+
     while not state.stop_requested.is_set():
-        time.sleep(2)
+        time.sleep(0.2)
+        state.tick += 1
+        if state.tick % 20 == 0:
+            logger.debug(f"worker-{ident}: tick {state.tick}")
+
+    logger.debug(f"worker-{ident}: done")
 
 
 def create_worker(queue: queue.Queue) -> WorkerState:
