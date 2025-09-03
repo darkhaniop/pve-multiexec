@@ -9,7 +9,6 @@ from proxmoxer import ProxmoxAPI
 from dataclasses import dataclass
 import queue
 import threading
-import time
 from typing import Callable
 import logging
 
@@ -33,7 +32,6 @@ class WorkerState:
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 def _run_worker(state: WorkerState) -> None:
@@ -43,18 +41,19 @@ def _run_worker(state: WorkerState) -> None:
     proxmox_api = create_proxmox_api()
 
     while not state.stop_requested.is_set():
-        # time.sleep(0.2)
         state.tick += 1
         if state.tick % 20 == 0:
             logger.debug(f"worker-{ident}: tick {state.tick}")
         try:
             job = state.queue.get(timeout=0.2)
+            logger.debug(f"worker-{ident}: job ...")
             try:
                 _result = job.func(proxmox_api)
             except Exception as exc:
                 job.exc = exc
             job.done_event.set()
-
+            state.jobs_done += 1
+            logger.debug(f"worker-{ident}: job done (total: {state.jobs_done})")
         except queue.Empty:
             pass
 
