@@ -9,7 +9,7 @@ from proxmoxer import ProxmoxAPI
 from dataclasses import dataclass
 import queue
 import threading
-from typing import Callable
+from typing import Any, Callable
 import logging
 
 from .api_initializer import create_proxmox_api
@@ -17,7 +17,7 @@ from .api_initializer import create_proxmox_api
 
 @dataclass
 class WorkerJob:
-    func: Callable[[ProxmoxAPI], bool]
+    func: Callable[[ProxmoxAPI], Any]
     done_event: threading.Event
     exc: Exception | None = None
 
