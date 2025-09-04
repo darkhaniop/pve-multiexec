@@ -2,6 +2,12 @@
 
 A simple utility that provides a RESTful interface for "dropping caches" in the Proxmox VE quest VMs.
 
+## Running a Dev Server
+
+```shell
+uv run hypercorn pve_drop_guest_caches:app --bind 0.0.0.0:8081 --reload
+```
+
 ## Preliminary Dependencies
 
 * Proxmoxer
