@@ -10,7 +10,6 @@ from fastapi import FastAPI
 from proxmoxer import ProxmoxAPI
 
 from .common import app_state
-from .pve.api_initializer import create_proxmox_api
 from .pve.models import PveNode, PveQemuVm
 from .pve.worker import WorkerJob, create_worker
 from .pve.worker import logger as worker_logger
@@ -85,12 +84,22 @@ async def get_nodes() -> list[PveNode]:
 
 
 @app.get("/nodes/{node}/vms", responses={404: {"description": "Unavailable node."}})
-async def get_node_vms(node: Annotated[str, "The cluster node name."]) -> list[PveQemuVm]:
+async def get_node_vms(
+    node: Annotated[str, "The cluster node name."],
+) -> list[PveQemuVm]:
     """Virtual machine index (per node)."""
 
+    return_value = {"response": None}
+
+    def _fetch_function(proxmox_api: ProxmoxAPI):
+        logger.info(f"job running in {threading.get_ident()}")
+        return_value["response"] = proxmox_api.nodes(node).qemu.get()
+
     def _get_node_qemu_in_worker():
-        pve_api = create_proxmox_api()
-        return pve_api.nodes(node).qemu.get()
+        worker_job = WorkerJob(_fetch_function, threading.Event())
+        app_state.queue.put(worker_job)
+        worker_job.done_event.wait()
+        return return_value["response"]
 
     node_vms = await asyncio.to_thread(_get_node_qemu_in_worker)
     return node_vms
