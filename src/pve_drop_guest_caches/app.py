@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from proxmoxer import ProxmoxAPI
 
 from .common import app_state
-from .pve.models import PveNode, PveQemuVm
+from .pve.schemas import PveNode, PveQemuVm
 from .pve.worker import WorkerJob, create_worker
 from .pve.worker import logger as worker_logger
 
