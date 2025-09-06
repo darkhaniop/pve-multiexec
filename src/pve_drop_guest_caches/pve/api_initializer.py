@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 from proxmoxer import ProxmoxAPI
 
-
 load_dotenv()
 
 

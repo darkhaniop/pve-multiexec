@@ -1,13 +1,12 @@
-from proxmoxer import ProxmoxAPI
+import logging
 import queue
 import threading
 import time
-import logging
 
+from proxmoxer import ProxmoxAPI
 
 import pve_drop_guest_caches.pve.worker
-from pve_drop_guest_caches.pve.worker import create_worker, WorkerJob
-
+from pve_drop_guest_caches.pve.worker import WorkerJob, create_worker
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)

@@ -5,12 +5,13 @@ library that supports "keep-alive" out-of-the-box, so by reusing a ProxmoxAPI in
 we should be able to reuse the connections.
 """
 
-from proxmoxer import ProxmoxAPI
-from dataclasses import dataclass
+import logging
 import queue
 import threading
+from dataclasses import dataclass
 from typing import Any, Callable
-import logging
+
+from proxmoxer import ProxmoxAPI
 
 from .api_initializer import create_proxmox_api
 
@@ -61,7 +62,9 @@ def _run_worker(state: WorkerState) -> None:
 
 
 def create_worker(queue: queue.Queue) -> WorkerState:
-    worker_state = WorkerState(stop_requested=threading.Event(), queue=queue, thread=threading.Thread())
+    worker_state = WorkerState(
+        stop_requested=threading.Event(), queue=queue, thread=threading.Thread()
+    )
 
     thread = threading.Thread(target=_run_worker, kwargs={"state": worker_state})
     worker_state.thread = thread

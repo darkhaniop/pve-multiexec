@@ -1,7 +1,8 @@
-from typing import Any
 import queue
-from ..pve.worker import WorkerJob, WorkerState
 from dataclasses import dataclass
+from typing import Any
+
+from ..pve.worker import WorkerJob, WorkerState
 
 
 @dataclass
