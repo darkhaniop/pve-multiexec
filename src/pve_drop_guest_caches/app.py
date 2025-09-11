@@ -9,16 +9,20 @@ from typing import Annotated
 from fastapi import FastAPI
 from proxmoxer import ProxmoxAPI
 
+from .api_cmd_templates.router import (
+    router as cmd_templates_router,
+)
 from .common import app_state
+from .db import db_init
 from .pve.schemas import PveNode, PveQemuVm
 from .pve.worker import WorkerJob, create_worker
 from .pve.worker import logger as worker_logger
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
-worker_logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.DEBUG)
+worker_logger.setLevel(logging.INFO)
 
 
 def load_config():
@@ -35,6 +39,8 @@ load_config()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    db_init()
+
     n_workers = app_state.config["n_workers"]
     for i in range(n_workers):
         app_state.workers.append(create_worker(app_state.queue))
@@ -103,3 +109,6 @@ async def get_node_vms(
 
     node_vms = await asyncio.to_thread(_get_node_qemu_in_worker)
     return node_vms
+
+
+app.include_router(cmd_templates_router, prefix="/cmd_templates")
