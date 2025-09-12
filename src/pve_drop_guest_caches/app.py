@@ -9,6 +9,9 @@ from typing import Annotated
 from fastapi import FastAPI
 from proxmoxer import ProxmoxAPI
 
+from .api_batchexecs.router import (
+    router as batchexecs_router,
+)
 from .api_cmd_templates.router import (
     router as cmd_templates_router,
 )
@@ -111,4 +114,7 @@ async def get_node_vms(
     return node_vms
 
 
-app.include_router(cmd_templates_router, prefix="/cmd_templates")
+app.include_router(
+    cmd_templates_router, prefix="/cmd_templates", tags=["cmd_templates"]
+)
+app.include_router(batchexecs_router, prefix="/batchexecs", tags=["batchexecs"])
