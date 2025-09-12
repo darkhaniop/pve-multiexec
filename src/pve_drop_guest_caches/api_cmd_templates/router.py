@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select
 
-from pve_drop_guest_caches.db import SessionDep
-
+from ..db import SessionDep
 from .models import CmdTemplate, CmdTemplateBase
 
 router = APIRouter()

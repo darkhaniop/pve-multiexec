@@ -4,6 +4,7 @@ from fastapi import Depends
 from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, create_engine
 
+from .api_batchexecs.models import db_init as batchexecs_db_init
 from .api_cmd_templates.models import db_init as cmd_templates_db_init
 from .common import app_state
 
@@ -14,6 +15,7 @@ class _LocalState:
 
 def db_init():
     cmd_templates_db_init()
+    batchexecs_db_init()
 
     sqlite_file_name = app_state.config["db_file"]
     sqlite_url = f"sqlite:///{sqlite_file_name}"
