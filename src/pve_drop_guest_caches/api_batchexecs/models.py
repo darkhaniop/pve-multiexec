@@ -1,7 +1,7 @@
 from sqlmodel import Field, SQLModel
 
 
-class BatchExecBase(SQLModel):
+class ExecConfigBase(SQLModel):
     name: str = Field(min_length=1, index=True)
     include_tags: str
     exclude_tags: str
@@ -11,7 +11,7 @@ class BatchExecBase(SQLModel):
     )
 
 
-class BatchExec(BatchExecBase, table=True):
+class ExecConfig(ExecConfigBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
 
 
