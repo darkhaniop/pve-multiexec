@@ -23,16 +23,15 @@ Just a reminder for myself about the next steps.
 
 Higher priority:
 
+* Implement the invocations endpoint, this is a more generic approach compared to the previous `drop_caches`, single command.
 * Implement aggregate memory consumption info endpoint.
-* Implement the `drop_caches` endpoint (accept a list of VMs).
-* Implement the `drop_caches_tagged` endpoint (accept a non-empty list of tags).
 * Sanitize the list of VMs based on running states of the VMs (not guaranteed to be accurate, because fetching VM states and posting `drop_caches` cannot be done atomically, but allow not sending requests to VMs that are known to be offline or missing).
 
 Lower priority:
 
 * Implement more flexible filtering methods for VM selection.
 * Implement custom commands (e.g., view system info)
-* Run 2-3 workers, so that `drop_caches` POST requests can be sent in parallel.
+* **done** Run 2-3 workers, so that `drop_caches` POST requests can be sent in parallel.
 * Rate-limit calls to the upstream server with `cachetools`.
 * Add the CLI script
 * Add CLI params to set
@@ -40,3 +39,8 @@ Lower priority:
     * the usual host and port
     * cache TTL
     * etc.
+
+Superseded:
+
+* (from high-prio list) ~~Implement the `drop_caches` endpoint (accept a list of VMs).~~
+* (from high-prio list) ~~Implement the `drop_caches_tagged` endpoint (accept a non-empty list of tags).~~
