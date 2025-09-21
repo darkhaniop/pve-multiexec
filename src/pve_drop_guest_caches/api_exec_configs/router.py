@@ -81,8 +81,8 @@ ValidExecConfigDep = Annotated[ExecConfigBase, Depends(get_valid_exec_config)]
 async def get_exec_configs(session: SessionDep):
     """Read a subset of ExecConfigs"""
 
-    exec_config = session.exec(select(ExecConfig)).all()
-    return exec_config
+    exec_configs = session.exec(select(ExecConfig)).all()
+    return exec_configs
 
 
 @router.post("/", response_model=ExecConfigResult)
