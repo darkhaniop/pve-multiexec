@@ -15,6 +15,7 @@ from .api_cmd_templates.router import (
 from .api_exec_configs.router import (
     router as exec_configs_router,
 )
+from .api_invocations.router import router as invocations_router
 from .common import app_state
 from .db import db_init
 from .pve.schemas import PveNode, PveQemuVm
@@ -118,3 +119,4 @@ app.include_router(
     cmd_templates_router, prefix="/cmd_templates", tags=["cmd_templates"]
 )
 app.include_router(exec_configs_router, prefix="/exec_configs", tags=["exec_configs"])
+app.include_router(invocations_router, prefix="/invocations", tags=["invocations"])
