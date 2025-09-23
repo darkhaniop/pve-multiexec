@@ -17,20 +17,22 @@ class InvocationBase(SQLModel):
 class Invocation(InvocationBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     created_at: datetime | None = Field(
+        default=None,
         sa_column=Column(
             TIMESTAMP(timezone=True),
             nullable=False,
             server_default=text("CURRENT_TIMESTAMP"),
             index=True,
-        )
+        ),
     )
     updated_at: datetime | None = Field(
+        default=None,
         sa_column=Column(
             TIMESTAMP(timezone=True),
             nullable=False,
             server_default=text("CURRENT_TIMESTAMP"),
             server_onupdate=text("CURRENT_TIMESTAMP"),
-        )
+        ),
     )
 
 

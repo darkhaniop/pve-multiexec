@@ -3,13 +3,20 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter
-from pydantic import BaseModel, BeforeValidator, computed_field
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    SerializerFunctionWrapHandler,
+    computed_field,
+    model_serializer,
+)
 from sqlmodel import select
 
-from pve_drop_guest_caches.api_invocations.models import Invocation
-
-from ..db import LogsSessionDep
+from ..api_cmd_templates.models import CmdTemplate
+from ..api_exec_configs.router import ExecConfigResult, get_exec_config_by_id
+from ..db import LogsSessionDep, SessionDep
+from .models import Invocation, InvocationBase
 
 router = APIRouter()
 
@@ -39,9 +46,69 @@ class InvocationResult(BaseModel):
         return (self.finished_dt - self.created_at).seconds
 
 
+class NewInvocation(BaseModel):
+    exec_config_id: int
+    use_custom_comment: bool = False
+    comment: str | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        serialized = handler(self)
+        serialized["fields"] = list(serialized)
+        return serialized
+
+
+async def get_invocation_base_from_new(
+    session: SessionDep, new_invocation: NewInvocation
+) -> InvocationBase:
+    exec_config_id = new_invocation.exec_config_id
+    db_exec_config = await get_exec_config_by_id(session, exec_config_id)
+    exec_config = ExecConfigResult.model_validate(db_exec_config.model_dump())
+    cmd_template_id = db_exec_config.cmd_template_id
+    if cmd_template_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail="CmdTemplate id is not specified in the selected ExecConfig",
+        )
+    db_cmd_template = session.get(CmdTemplate, cmd_template_id)
+    if not db_cmd_template:
+        raise HTTPException(status_code=404, detail="CmdTemplate not found")
+
+    return InvocationBase.model_validate(
+        {
+            "comment": "test",
+            "exec_config_id": exec_config_id,
+            "cmd_template_id": cmd_template_id,
+            "exec_config_raw": exec_config.model_dump_json(indent=2),
+            "cmd_template_raw": db_cmd_template.model_dump_json(indent=2),
+            "vms_matched": "[]",
+            "vms_executed": "[]",
+            "finished_dt": None,
+        }
+    )
+
+
+InvocationBaseFromNewDep = Annotated[
+    InvocationBase, Depends(get_invocation_base_from_new)
+]
+
+
 @router.get("/", response_model=list[InvocationResult])
 async def get_invocations(session: LogsSessionDep):
     """Read a subset of Invocations"""
 
     db_invocations = session.exec(select(Invocation)).all()
     return db_invocations
+
+
+@router.post("/", response_model=InvocationResult)
+async def create_invocation(
+    session: LogsSessionDep, new_invocation_base: InvocationBaseFromNewDep
+):
+    db_invocation = Invocation.model_validate(new_invocation_base)
+    session.add(db_invocation)
+    session.commit()
+    session.refresh(db_invocation)
+    return db_invocation
