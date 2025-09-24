@@ -9,8 +9,7 @@ class InvocationBase(SQLModel):
     cmd_template_id: int = Field(index=True)
     exec_config_raw: str
     cmd_template_raw: str
-    vms_matched: str
-    vms_executed: str
+    matched_guests: str
     finished_dt: datetime | None
 
 
