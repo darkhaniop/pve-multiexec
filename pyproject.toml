@@ -1,5 +1,5 @@
 [project]
-name = "pve-drop-guest-caches"
+name = "pve-multiexec"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
