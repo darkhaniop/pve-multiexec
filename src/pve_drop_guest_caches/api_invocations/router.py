@@ -47,6 +47,16 @@ class InvocationResult(BaseModel):
             return None
         return (self.finished_dt - self.created_at).seconds
 
+    @computed_field
+    @property
+    def exec_config(self) -> Mapping[str, Any]:
+        return json.loads(self.exec_config_raw)
+
+    @computed_field
+    @property
+    def cmd_template(self) -> Mapping[str, Any]:
+        return json.loads(self.cmd_template_raw)
+
 
 class NewInvocation(BaseModel):
     exec_config_id: int
