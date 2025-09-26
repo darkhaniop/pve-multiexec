@@ -5,7 +5,7 @@ import proxmoxer
 from dotenv import load_dotenv
 from proxmoxer import ProxmoxAPI
 
-from pve_drop_guest_caches.pve.api_initializer import create_proxmox_api
+from pve_multiexec.pve.api_initializer import create_proxmox_api
 
 load_dotenv()
 

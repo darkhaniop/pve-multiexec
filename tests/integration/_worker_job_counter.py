@@ -5,14 +5,14 @@ import time
 
 from proxmoxer import ProxmoxAPI
 
-import pve_drop_guest_caches.pve.worker
-from pve_drop_guest_caches.pve.worker import WorkerJob, create_worker
+import pve_multiexec.pve.worker
+from pve_multiexec.pve.worker import WorkerJob, create_worker
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-worker_logger = logging.getLogger(pve_drop_guest_caches.pve.worker.__name__)
+worker_logger = logging.getLogger(pve_multiexec.pve.worker.__name__)
 worker_logger.setLevel(logging.DEBUG)
 
 

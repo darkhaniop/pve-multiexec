@@ -1,11 +1,11 @@
-# pve-drop-guest-caches
+# pve-multiexec
 
-A simple utility that provides a RESTful interface for "dropping caches" in the Proxmox VE quest VMs.
+A simple utility that provides a RESTful API for batch execting commands in Proxmox VE quest VMs with `qemu-quest-agent` (e.g., `drop_caches` in non-essential guests).
 
 ## Running a Dev Server
 
 ```shell
-uv run hypercorn pve_drop_guest_caches:app --bind 0.0.0.0:8081 --reload
+uv run hypercorn pve_multiexec:app --bind 0.0.0.0:8081 --reload
 ```
 
 ## Preliminary Dependencies

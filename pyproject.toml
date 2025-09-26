@@ -1,14 +1,14 @@
 [project]
 name = "pve-multiexec"
 version = "0.1.0"
-description = "Add your description here"
+description = "A simple utility that provides a RESTful API for batch execting commands in Proxmox VE quest VMs with `qemu-quest-agent`"
 readme = "README.md"
 authors = [
     { name = "darkhaniop", email = "72267237+darkhaniop@users.noreply.github.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "cachetools==6.1.0",
+    "cachetools>=6.1.0",
     "fastapi>=0.116.1",
     "hypercorn>=0.17.3",
     "proxmoxer>=2.2.0",

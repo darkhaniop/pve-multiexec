@@ -3,7 +3,7 @@ import queue
 import threading
 import time
 
-from pve_drop_guest_caches.pve.worker import create_worker
+from pve_multiexec.pve.worker import create_worker
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
