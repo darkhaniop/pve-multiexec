@@ -78,4 +78,38 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
         return return_value["matched_vms_by_node"]
 
     matched_vms_by_node = await asyncio.to_thread(get_matches)
-    print(json.dumps(matched_vms_by_node, indent=2))
+    # print(json.dumps(matched_vms_by_node, indent=2))
+
+    def exec_starter(vm: dict):
+        pass
+
+    matched_vms = []
+    tasks = []
+    for node, vms in matched_vms_by_node.items():
+        for vm in vms:
+            vmid = vm["vmid"]
+            exec_flag = vm["status"] == "running"
+            exec_status = "done (vm not running)" if not exec_flag else "scheduled"
+
+            vm_exec_state = {
+                "node": node,
+                "vmid": vmid,
+                "exec_flag": exec_flag,
+                "exec_status": exec_status,
+                "vm_info": vm,
+            }
+            matched_vms.append(vm_exec_state)
+
+            if exec_flag:
+                tasks.append(
+                    asyncio.create_task(
+                        asyncio.to_thread(exec_starter, vm_exec_state),
+                        name=f"exec-{invocation_id}-in-{vmid}",
+                    )
+                )
+
+    await asyncio.sleep(20)
+
+    db_invocation.matched_guests = json.dumps(matched_vms)
+    logs_session.add(db_invocation)
+    logs_session.commit()
