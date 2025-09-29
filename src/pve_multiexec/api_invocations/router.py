@@ -16,6 +16,7 @@ router = APIRouter()
 async def get_db_invocation_from_new(
     background_tasks: BackgroundTasks,
     session: SessionDep,
+    logs_session: LogsSessionDep,
     new_invocation: NewInvocation,
 ) -> Invocation:
     exec_config_id = new_invocation.exec_config_id
@@ -48,11 +49,11 @@ async def get_db_invocation_from_new(
     )
 
     db_invocation = Invocation.model_validate(new_invocation_base)
-    session.add(db_invocation)
-    session.commit()
-    session.refresh(db_invocation)
+    logs_session.add(db_invocation)
+    logs_session.commit()
+    logs_session.refresh(db_invocation)
 
-    background_tasks.add_task(run_invocation, db_invocation)
+    background_tasks.add_task(run_invocation, db_invocation.id, logs_session)
 
     return db_invocation
 

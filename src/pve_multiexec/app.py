@@ -15,6 +15,7 @@ from .api_cmd_templates.router import (
 from .api_exec_configs.router import (
     router as exec_configs_router,
 )
+from .api_invocations.background import logger as background_logger
 from .api_invocations.router import router as invocations_router
 from .common import app_state
 from .db import db_init
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 logger.setLevel(logging.DEBUG)
 worker_logger.setLevel(logging.INFO)
+background_logger.setLevel(logging.DEBUG)
 
 
 def load_config():
