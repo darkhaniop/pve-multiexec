@@ -21,15 +21,16 @@ class InvocationGuest(BaseModel):
     vm_info: Mapping[str, Any]
     exec_flag: bool
     exec_message: str = ""
+    exec_pid: int = 0
     exec_status: Mapping[str, Any] | None = None
 
 
-class InvocationResult(BaseModel):
+class InvocationResponse(BaseModel):
     id: int
     exec_config_id: int
     cmd_template_id: int
-    exec_config_raw: str
-    cmd_template_raw: str
+    exec_config_json: str = Field(exclude=True)
+    cmd_template_json: str = Field(exclude=True)
     matched_guests_json: str = Field(exclude=True)
     created_at: datetime
     finished_at: datetime | None
@@ -44,19 +45,20 @@ class InvocationResult(BaseModel):
     @computed_field
     @property
     def exec_config(self) -> ExecConfigResult:
-        # return json.loads(self.exec_config_raw)
-        return ExecConfigResult.model_validate_json(self.exec_config_raw)
+        return ExecConfigResult.model_validate_json(self.exec_config_json)
 
     @computed_field
     @property
     def cmd_template(self) -> CmdTemplateBase:
-        # return json.loads(self.cmd_template_raw)
-        return CmdTemplateBase.model_validate_json(self.cmd_template_raw)
+        return CmdTemplateBase.model_validate_json(self.cmd_template_json)
 
     @computed_field
     @property
     def matched_guests(self) -> list[InvocationGuest]:
-        return json.loads(self.matched_guests_json)
+        return [
+            InvocationGuest.model_validate(obj)
+            for obj in json.loads(self.matched_guests_json)
+        ]
 
 
 class NewInvocation(BaseModel):

@@ -7,8 +7,8 @@ class InvocationBase(SQLModel):
     comment: str = Field(default=None, index=True)
     exec_config_id: int
     cmd_template_id: int = Field(index=True)
-    exec_config_raw: str
-    cmd_template_raw: str
+    exec_config_json: str
+    cmd_template_json: str
     matched_guests_json: str
     finished_at: datetime | None
 

@@ -8,7 +8,7 @@ from ..api_exec_configs.router import ExecConfigResult, get_exec_config_by_id
 from ..db import LogsSessionDep, SessionDep
 from .background import run_invocation
 from .models import Invocation, InvocationBase
-from .utils import InvocationResult, NewInvocation
+from .utils import InvocationResponse, NewInvocation
 
 router = APIRouter()
 
@@ -36,25 +36,13 @@ async def get_db_invocation_from_new(
     if new_invocation.use_custom_comment:
         comment = new_invocation.comment if new_invocation.comment is not None else ""
 
-    # new_invocation_base = InvocationBase.model_validate(
-    #     {
-    #         "comment": comment,
-    #         "exec_config_id": exec_config_id,
-    #         "cmd_template_id": cmd_template_id,
-    #         "exec_config_raw": exec_config.model_dump_json(indent=2),
-    #         "cmd_template_raw": db_cmd_template.model_dump_json(indent=2),
-    #         "matched_guests_json": "[]",
-    #         "finished_at": None,
-    #     }
-    # )
-    # db_invocation = Invocation.model_validate(new_invocation_base)
     db_invocation = Invocation(
         **{
             "comment": comment,
             "exec_config_id": exec_config_id,
             "cmd_template_id": cmd_template_id,
-            "exec_config_raw": exec_config.model_dump_json(indent=2),
-            "cmd_template_raw": db_cmd_template.model_dump_json(indent=2),
+            "exec_config_json": exec_config.model_dump_json(indent=2),
+            "cmd_template_json": db_cmd_template.model_dump_json(indent=2),
             "matched_guests_json": "[]",
             "finished_at": None,
         }
@@ -71,7 +59,7 @@ async def get_db_invocation_from_new(
 DbInvocationFromNewDep = Annotated[InvocationBase, Depends(get_db_invocation_from_new)]
 
 
-@router.get("/", response_model=list[InvocationResult])
+@router.get("/", response_model=list[InvocationResponse])
 async def get_invocations(session: LogsSessionDep):
     """Read a subset of Invocations"""
 
@@ -79,7 +67,7 @@ async def get_invocations(session: LogsSessionDep):
     return db_invocations
 
 
-@router.post("/", response_model=InvocationResult)
+@router.post("/", response_model=InvocationResponse)
 async def create_invocation(
     session: LogsSessionDep, db_invocation: DbInvocationFromNewDep
 ):
