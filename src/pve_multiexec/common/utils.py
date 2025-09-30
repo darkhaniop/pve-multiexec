@@ -6,5 +6,4 @@ def to_list_validator(value: str | list) -> list:
         return value
     if value is None:
         return []
-    else:
-        return json.loads(value)
+    return json.loads(value)

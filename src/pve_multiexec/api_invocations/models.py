@@ -9,7 +9,7 @@ class InvocationBase(SQLModel):
     cmd_template_id: int = Field(index=True)
     exec_config_raw: str
     cmd_template_raw: str
-    matched_guests: str
+    matched_guests_json: str
     finished_at: datetime | None
 
 

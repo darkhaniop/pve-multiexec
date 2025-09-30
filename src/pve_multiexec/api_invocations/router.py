@@ -36,19 +36,29 @@ async def get_db_invocation_from_new(
     if new_invocation.use_custom_comment:
         comment = new_invocation.comment if new_invocation.comment is not None else ""
 
-    new_invocation_base = InvocationBase.model_validate(
-        {
+    # new_invocation_base = InvocationBase.model_validate(
+    #     {
+    #         "comment": comment,
+    #         "exec_config_id": exec_config_id,
+    #         "cmd_template_id": cmd_template_id,
+    #         "exec_config_raw": exec_config.model_dump_json(indent=2),
+    #         "cmd_template_raw": db_cmd_template.model_dump_json(indent=2),
+    #         "matched_guests_json": "[]",
+    #         "finished_at": None,
+    #     }
+    # )
+    # db_invocation = Invocation.model_validate(new_invocation_base)
+    db_invocation = Invocation(
+        **{
             "comment": comment,
             "exec_config_id": exec_config_id,
             "cmd_template_id": cmd_template_id,
             "exec_config_raw": exec_config.model_dump_json(indent=2),
             "cmd_template_raw": db_cmd_template.model_dump_json(indent=2),
-            "matched_guests": "[]",
+            "matched_guests_json": "[]",
             "finished_at": None,
         }
     )
-
-    db_invocation = Invocation.model_validate(new_invocation_base)
     logs_session.add(db_invocation)
     logs_session.commit()
     logs_session.refresh(db_invocation)

@@ -4,16 +4,19 @@ import logging
 import threading
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 from proxmoxer import ProxmoxAPI
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from pve_multiexec.pve.schemas import PveQemuVm
+
 from ..api_exec_configs.router import ExecConfigResult
 from ..common import app_state
 from ..pve.worker import WorkerJob, run_in_pve_worker
 from .models import Invocation
-from .utils import InvocationResult
+from .utils import InvocationGuest, InvocationResult
 
 EXEC_WAIT_TIMEOUT = 3600
 
@@ -38,12 +41,9 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
 
     return_value = {"nodes": None, "vms_by_node": {}}
 
-    def check_vm_match(vm: dict, exec_config: ExecConfigResult) -> bool:
+    def check_vm_match(vm: PveQemuVm, exec_config: ExecConfigResult) -> bool:
         # print(json.dumps(vm, indent=2))
-        if "tags" not in vm or vm["tags"] is None:
-            tags = []
-        else:
-            tags = vm["tags"].split(";")
+        tags: list[str] = vm.tags.split(";") if vm.tags is not None else []
 
         found_in_includes = False
         for tag in tags:
@@ -58,7 +58,7 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
         if found_in_includes and not found_in_excludes:
             return True
 
-        if vm["vmid"] in exec_config.include_vmids:
+        if vm.vmid in exec_config.include_vmids:
             return True
 
         return False
@@ -66,7 +66,7 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
     def fetch_all_guests(proxmox_api: ProxmoxAPI):
         return_value["nodes"] = proxmox_api.nodes.get()
 
-        vms_by_node = {}
+        vms_by_node: dict[str, list[dict[str, Any]]] = {}
         matched_vms_by_node = {}
         for node_info in return_value["nodes"]:
             node = node_info["node"]
@@ -76,7 +76,9 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
             vms_by_node[node] = proxmox_api.nodes(node).qemu.get()
             # print(json.dumps(vms_by_node[node], indent=2))
             for vm in vms_by_node[node]:
-                if check_vm_match(vm, invocation_result.exec_config):
+                if check_vm_match(
+                    PveQemuVm.model_validate(vm), invocation_result.exec_config
+                ):
                     matched_vms_by_node[node].append(vm)
 
         return_value["vms_by_node"] = vms_by_node
@@ -91,11 +93,11 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
     matched_vms_by_node = await asyncio.to_thread(get_matches)
     # print(json.dumps(matched_vms_by_node, indent=2))
 
-    def exec_starter(proxmox_api: ProxmoxAPI, vm_exec_state: dict):
+    def exec_starter(proxmox_api: ProxmoxAPI, vm_exec_state: InvocationGuest):
         logger.info(msg=f"exec_starter\n{json.dumps(vm_exec_state, indent=2)}")
 
-        node = vm_exec_state["node"]
-        vmid = vm_exec_state["vmid"]
+        node = vm_exec_state.node
+        vmid = vm_exec_state.vmid
 
         exec_data = ExecData(
             command=[invocation_result.cmd_template.template], node=node, vmid=vmid
@@ -120,16 +122,16 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
         process_exited = False
         while not process_exited and duration < EXEC_WAIT_TIMEOUT:
             time.sleep(0.4)
-            exec_status_response = (
+            exec_status_response: dict[str, Any] = (
                 proxmox_api.nodes(node)
                 .qemu(vmid)
                 .agent("exec-status")
                 .get(**exec_status_params)
             )
-            process_exited = exec_status_response.get("exited", False)
+            process_exited: bool = exec_status_response.get("exited", False)
             duration = time.monotonic() - start_time
 
-        vm_exec_state["exec_message"] = (
+        vm_exec_state.exec_message = (
             f"done ({exec_status_response.get('exitcode', '-')})"
         )
         exec_status = json.loads(json.dumps(exec_status_response))
@@ -139,7 +141,7 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
         if "err-data" in exec_status:
             # write only the tail of stderr
             exec_status["err-data"] = exec_status["err-data"][-200:]
-        vm_exec_state["exec_status"] = exec_status
+        vm_exec_state.exec_status = exec_status
 
     matched_vms = []
     tasks = []
@@ -149,27 +151,30 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
             exec_flag = vm["status"] == "running"
             exec_message = "done (vm not running)" if not exec_flag else "scheduled"
 
-            vm_exec_state = {
-                "node": node,
-                "vmid": vmid,
-                "exec_flag": exec_flag,
-                "exec_message": exec_message,
-                "vm_info": vm,
-            }
-            matched_vms.append(vm_exec_state)
+            # invocation_guest = {
+            #     "node": node,
+            #     "vmid": vmid,
+            #     "exec_flag": exec_flag,
+            #     "exec_message": exec_message,
+            #     "vm_info": vm,
+            # }
+            invocation_guest = InvocationGuest(
+                node=node, vmid=vmid, exec_flag=exec_flag, vm_info=vm
+            )
+            matched_vms.append(invocation_guest.model_dump())
 
             if exec_flag:
                 tasks.append(
-                    run_in_pve_worker(app_state.queue, exec_starter, [vm_exec_state])
+                    run_in_pve_worker(app_state.queue, exec_starter, [invocation_guest])
                 )
 
-    db_invocation.matched_guests = json.dumps(matched_vms)
+    db_invocation.matched_guests_json = json.dumps(matched_vms)
     logs_session.add(db_invocation)
     logs_session.commit()
 
     _task_results = await asyncio.gather(*tasks)
 
-    db_invocation.matched_guests = json.dumps(matched_vms)
+    db_invocation.matched_guests_json = json.dumps(matched_vms)
     db_invocation.finished_at = datetime.now(timezone.utc)
     logs_session.add(db_invocation)
     logs_session.commit()

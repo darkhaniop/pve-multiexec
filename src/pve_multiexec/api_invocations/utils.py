@@ -1,10 +1,11 @@
+import json
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
 from pydantic import (
     BaseModel,
-    BeforeValidator,
+    Field,
     SerializerFunctionWrapHandler,
     computed_field,
     model_serializer,
@@ -12,7 +13,15 @@ from pydantic import (
 
 from ..api_cmd_templates.models import CmdTemplateBase
 from ..api_exec_configs.router import ExecConfigResult
-from ..common.utils import to_list_validator
+
+
+class InvocationGuest(BaseModel):
+    node: str
+    vmid: int
+    vm_info: Mapping[str, Any]
+    exec_flag: bool
+    exec_message: str = ""
+    exec_status: Mapping[str, Any] | None = None
 
 
 class InvocationResult(BaseModel):
@@ -21,9 +30,7 @@ class InvocationResult(BaseModel):
     cmd_template_id: int
     exec_config_raw: str
     cmd_template_raw: str
-    matched_guests: Annotated[
-        list[Mapping[str, Any]], BeforeValidator(to_list_validator)
-    ]
+    matched_guests_json: str = Field(exclude=True)
     created_at: datetime
     finished_at: datetime | None
 
@@ -45,6 +52,11 @@ class InvocationResult(BaseModel):
     def cmd_template(self) -> CmdTemplateBase:
         # return json.loads(self.cmd_template_raw)
         return CmdTemplateBase.model_validate_json(self.cmd_template_raw)
+
+    @computed_field
+    @property
+    def matched_guests(self) -> list[InvocationGuest]:
+        return json.loads(self.matched_guests_json)
 
 
 class NewInvocation(BaseModel):
