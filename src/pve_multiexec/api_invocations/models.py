@@ -10,7 +10,7 @@ class InvocationBase(SQLModel):
     exec_config_raw: str
     cmd_template_raw: str
     matched_guests: str
-    finished_dt: datetime | None
+    finished_at: datetime | None
 
 
 class Invocation(InvocationBase, table=True):

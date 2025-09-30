@@ -2,18 +2,29 @@ import asyncio
 import json
 import logging
 import threading
+import time
 from collections.abc import Mapping
+from datetime import datetime, timezone
 
 from proxmoxer import ProxmoxAPI
+from pydantic import BaseModel
 from sqlmodel import Session
 
-from pve_multiexec.common import app_state
-from pve_multiexec.pve.worker import WorkerJob
-
+from ..common import app_state
+from ..pve.worker import WorkerJob, run_in_pve_worker
 from .models import Invocation
 from .utils import InvocationResult
 
+EXEC_WAIT_TIMEOUT = 3600
+
+
 logger = logging.getLogger(__name__)
+
+
+class ExecData(BaseModel):
+    command: list[str]
+    node: str
+    vmid: int
 
 
 async def run_invocation(invocation_id: int | None, logs_session: Session) -> None:
@@ -23,7 +34,7 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
     if not db_invocation:
         return
     invocation_result = InvocationResult.model_validate(db_invocation.model_dump())
-    logger.info(invocation_result.model_dump_json(indent=2))
+    # logger.info(invocation_result.model_dump_json(indent=2))
 
     return_value = {"nodes": None, "vms_by_node": {}}
 
@@ -80,8 +91,55 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
     matched_vms_by_node = await asyncio.to_thread(get_matches)
     # print(json.dumps(matched_vms_by_node, indent=2))
 
-    def exec_starter(vm: dict):
-        pass
+    def exec_starter(proxmox_api: ProxmoxAPI, vm_exec_state: dict):
+        logger.info(msg=f"exec_starter\n{json.dumps(vm_exec_state, indent=2)}")
+
+        node = vm_exec_state["node"]
+        vmid = vm_exec_state["vmid"]
+
+        exec_data = ExecData(
+            command=[invocation_result.cmd_template["template"]], node=node, vmid=vmid
+        )
+        exec_response: dict = (
+            proxmox_api.nodes(node)
+            .qemu(vmid)
+            .agent("exec")
+            .post(**exec_data.model_dump())
+        )
+        logger.info(
+            msg=f"exec_starter\n{json.dumps({'response': exec_response, '_': vm_exec_state}, indent=2)}"
+        )
+        pid: int = exec_response.get("pid", -1)
+        if pid <= 0:
+            # error
+            return
+
+        start_time = time.monotonic()
+        duration = 0
+        exec_status_params = {"node": node, "vmid": vmid, "pid": pid}
+        process_exited = False
+        while not process_exited and duration < EXEC_WAIT_TIMEOUT:
+            time.sleep(0.4)
+            exec_status_response = (
+                proxmox_api.nodes(node)
+                .qemu(vmid)
+                .agent("exec-status")
+                .get(**exec_status_params)
+            )
+            process_exited = exec_status_response.get("exited", False)
+            duration = time.monotonic() - start_time
+
+        vm_exec_state["exec_message"] = (
+            f"finished ({exec_status_response.get('exitcode', '-')})"
+        )
+        exec_status = json.loads(json.dumps(exec_status_response))
+        if "out-data" in exec_status:
+            # write only the tail of stdout
+            exec_status["out-data"] = exec_status["out-data"][-200:]
+        if "err-data" in exec_status:
+            # write only the tail of stderr
+            exec_status["err-data"] = exec_status["err-data"][-200:]
+        vm_exec_state["exec_status"] = exec_status
 
     matched_vms = []
     tasks = []
@@ -89,27 +147,29 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
         for vm in vms:
             vmid = vm["vmid"]
             exec_flag = vm["status"] == "running"
-            exec_status = "done (vm not running)" if not exec_flag else "scheduled"
+            exec_message = "done (vm not running)" if not exec_flag else "scheduled"
 
             vm_exec_state = {
                 "node": node,
                 "vmid": vmid,
                 "exec_flag": exec_flag,
-                "exec_status": exec_status,
+                "exec_message": exec_message,
                 "vm_info": vm,
             }
             matched_vms.append(vm_exec_state)
 
             if exec_flag:
                 tasks.append(
-                    asyncio.create_task(
-                        asyncio.to_thread(exec_starter, vm_exec_state),
-                        name=f"exec-{invocation_id}-in-{vmid}",
-                    )
+                    run_in_pve_worker(app_state.queue, exec_starter, [vm_exec_state])
                 )
 
-    await asyncio.sleep(20)
+    db_invocation.matched_guests = json.dumps(matched_vms)
+    logs_session.add(db_invocation)
+    logs_session.commit()
+
+    _task_results = await asyncio.gather(*tasks)
 
     db_invocation.matched_guests = json.dumps(matched_vms)
+    db_invocation.finished_at = datetime.now(timezone.utc)
     logs_session.add(db_invocation)
     logs_session.commit()

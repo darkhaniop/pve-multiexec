@@ -5,6 +5,7 @@ library that supports "keep-alive" out-of-the-box, so by reusing a ProxmoxAPI in
 we should be able to reuse the connections.
 """
 
+import asyncio
 import logging
 import queue
 import threading
@@ -72,3 +73,38 @@ def create_worker(queue: queue.Queue) -> WorkerState:
     thread.start()
 
     return worker_state
+
+
+@dataclass
+class _JobResult:
+    result: Any = None
+    exc: Exception | None = None
+
+
+async def run_in_pve_worker(
+    job_queue: queue.Queue,
+    func: Callable[..., Any],
+    args: list[Any] | None = None,
+    kwargs: dict[str, Any] | None = None,
+) -> Any:
+    job_result = _JobResult()
+
+    if args is None:
+        args: list[Any] = []
+
+    if kwargs is None:
+        kwargs = {}
+
+    def wrapper(proxmox_api: ProxmoxAPI) -> None:
+        try:
+            job_result.result = func(proxmox_api, *args, **kwargs)
+        except Exception as exc:
+            job_result.exc = exc
+
+    worker_job = WorkerJob(wrapper, threading.Event())
+    job_queue.put(worker_job)
+
+    while not worker_job.done_event.is_set():
+        await asyncio.sleep(0.1)
+
+    return job_result.result

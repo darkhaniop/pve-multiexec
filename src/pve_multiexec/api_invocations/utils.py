@@ -28,14 +28,14 @@ class InvocationResult(BaseModel):
         list[Mapping[str, Any]], BeforeValidator(to_list_validator)
     ]
     created_at: datetime
-    finished_dt: datetime | None
+    finished_at: datetime | None
 
     @computed_field
     @property
     def duration_s(self) -> int | None:
-        if self.finished_dt is None:
+        if self.finished_at is None:
             return None
-        return (self.finished_dt - self.created_at).seconds
+        return (self.finished_at - self.created_at).seconds
 
     @computed_field
     @property

@@ -44,7 +44,7 @@ async def get_db_invocation_from_new(
             "exec_config_raw": exec_config.model_dump_json(indent=2),
             "cmd_template_raw": db_cmd_template.model_dump_json(indent=2),
             "matched_guests": "[]",
-            "finished_dt": None,
+            "finished_at": None,
         }
     )
 
