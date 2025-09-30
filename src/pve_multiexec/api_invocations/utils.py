@@ -1,4 +1,3 @@
-import json
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
@@ -11,11 +10,9 @@ from pydantic import (
     model_serializer,
 )
 
-
-def to_list_validator(value: str):
-    if value is None:
-        return []
-    return json.loads(value)
+from ..api_cmd_templates.models import CmdTemplateBase
+from ..api_exec_configs.router import ExecConfigResult
+from ..common.utils import to_list_validator
 
 
 class InvocationResult(BaseModel):
@@ -39,13 +36,15 @@ class InvocationResult(BaseModel):
 
     @computed_field
     @property
-    def exec_config(self) -> Mapping[str, Any]:
-        return json.loads(self.exec_config_raw)
+    def exec_config(self) -> ExecConfigResult:
+        # return json.loads(self.exec_config_raw)
+        return ExecConfigResult.model_validate_json(self.exec_config_raw)
 
     @computed_field
     @property
-    def cmd_template(self) -> Mapping[str, Any]:
-        return json.loads(self.cmd_template_raw)
+    def cmd_template(self) -> CmdTemplateBase:
+        # return json.loads(self.cmd_template_raw)
+        return CmdTemplateBase.model_validate_json(self.cmd_template_raw)
 
 
 class NewInvocation(BaseModel):

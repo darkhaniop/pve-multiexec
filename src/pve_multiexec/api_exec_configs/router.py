@@ -6,6 +6,7 @@ from pydantic import BaseModel, BeforeValidator, Field
 from sqlmodel import select
 
 from ..api_cmd_templates.models import CmdTemplate
+from ..common.utils import to_list_validator
 from ..db import SessionDep
 from .models import ExecConfig, ExecConfigBase
 
@@ -18,13 +19,6 @@ class ExecConfigUpdate(BaseModel):
     exclude_tags: list[str]
     include_vmids: list[int]
     cmd_template_id: int | None
-
-
-def to_list_validator(value: str):
-    if value is None:
-        return []
-    else:
-        return json.loads(value)
 
 
 class ExecConfigResult(ExecConfigUpdate):

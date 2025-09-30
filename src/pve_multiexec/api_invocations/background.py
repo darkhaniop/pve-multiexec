@@ -3,13 +3,13 @@ import json
 import logging
 import threading
 import time
-from collections.abc import Mapping
 from datetime import datetime, timezone
 
 from proxmoxer import ProxmoxAPI
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from ..api_exec_configs.router import ExecConfigResult
 from ..common import app_state
 from ..pve.worker import WorkerJob, run_in_pve_worker
 from .models import Invocation
@@ -38,7 +38,7 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
 
     return_value = {"nodes": None, "vms_by_node": {}}
 
-    def check_vm_match(vm: dict, exec_config: Mapping) -> bool:
+    def check_vm_match(vm: dict, exec_config: ExecConfigResult) -> bool:
         # print(json.dumps(vm, indent=2))
         if "tags" not in vm or vm["tags"] is None:
             tags = []
@@ -47,18 +47,18 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
 
         found_in_includes = False
         for tag in tags:
-            if tag in exec_config["include_tags"]:
+            if tag in exec_config.include_tags:
                 found_in_includes = True
                 break
         found_in_excludes = False
         for tag in tags:
-            if tag in exec_config["exclude_tags"]:
+            if tag in exec_config.exclude_tags:
                 found_in_excludes = True
                 break
         if found_in_includes and not found_in_excludes:
             return True
 
-        if vm["vmid"] in exec_config["include_vmids"]:
+        if vm["vmid"] in exec_config.include_vmids:
             return True
 
         return False
@@ -98,7 +98,7 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
         vmid = vm_exec_state["vmid"]
 
         exec_data = ExecData(
-            command=[invocation_result.cmd_template["template"]], node=node, vmid=vmid
+            command=[invocation_result.cmd_template.template], node=node, vmid=vmid
         )
         exec_response: dict = (
             proxmox_api.nodes(node)
@@ -130,7 +130,7 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
             duration = time.monotonic() - start_time
 
         vm_exec_state["exec_message"] = (
-            f"finished ({exec_status_response.get('exitcode', '-')})"
+            f"done ({exec_status_response.get('exitcode', '-')})"
         )
         exec_status = json.loads(json.dumps(exec_status_response))
         if "out-data" in exec_status:
