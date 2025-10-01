@@ -9,8 +9,9 @@ import asyncio
 import logging
 import queue
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from proxmoxer import ProxmoxAPI
 

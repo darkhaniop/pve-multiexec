@@ -93,7 +93,4 @@ def check_vm_match(vm: PveQemuVm, exec_config: ExecConfigResult) -> bool:
     if found_in_includes and not found_in_excludes:
         return True
 
-    if vm.vmid in exec_config.include_vmids:
-        return True
-
-    return False
+    return vm.vmid in exec_config.include_vmids

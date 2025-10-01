@@ -37,15 +37,13 @@ async def get_db_invocation_from_new(
         comment = new_invocation.comment if new_invocation.comment is not None else ""
 
     db_invocation = Invocation(
-        **{
-            "comment": comment,
-            "exec_config_id": exec_config_id,
-            "cmd_template_id": cmd_template_id,
-            "exec_config_json": exec_config.model_dump_json(indent=2),
-            "cmd_template_json": db_cmd_template.model_dump_json(indent=2),
-            "matched_guests_json": "[]",
-            "finished_at": None,
-        }
+        comment=comment,
+        exec_config_id=exec_config_id,
+        cmd_template_id=cmd_template_id,
+        exec_config_json=exec_config.model_dump_json(indent=2),
+        cmd_template_json=db_cmd_template.model_dump_json(indent=2),
+        matched_guests_json="[]",
+        finished_at=None,
     )
     logs_session.add(db_invocation)
     logs_session.commit()
