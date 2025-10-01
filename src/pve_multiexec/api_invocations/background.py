@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import threading
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -10,13 +9,11 @@ from proxmoxer import ProxmoxAPI
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from pve_multiexec.pve.schemas import PveQemuVm
-
-from ..api_exec_configs.router import ExecConfigResult
 from ..common import app_state
-from ..pve.worker import WorkerJob, run_in_pve_worker
+from ..pve.schemas import PveQemuVm
+from ..pve.worker import run_in_pve_worker
 from .models import Invocation
-from .utils import InvocationGuest, InvocationResponse
+from .utils import InvocationGuest, InvocationResponse, check_vm_match
 
 EXEC_WAIT_TIMEOUT = 3600
 
@@ -41,29 +38,7 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
 
     return_value = {"nodes": None, "vms_by_node": {}}
 
-    def check_vm_match(vm: PveQemuVm, exec_config: ExecConfigResult) -> bool:
-        # print(json.dumps(vm, indent=2))
-        tags: list[str] = vm.tags.split(";") if vm.tags is not None else []
-
-        found_in_includes = False
-        for tag in tags:
-            if tag in exec_config.include_tags:
-                found_in_includes = True
-                break
-        found_in_excludes = False
-        for tag in tags:
-            if tag in exec_config.exclude_tags:
-                found_in_excludes = True
-                break
-        if found_in_includes and not found_in_excludes:
-            return True
-
-        if vm.vmid in exec_config.include_vmids:
-            return True
-
-        return False
-
-    def fetch_all_guests(proxmox_api: ProxmoxAPI):
+    def match_all_guests(proxmox_api: ProxmoxAPI):
         return_value["nodes"] = proxmox_api.nodes.get()
 
         vms_by_node: dict[str, list[dict[str, Any]]] = {}
@@ -83,14 +58,17 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
 
         return_value["vms_by_node"] = vms_by_node
         return_value["matched_vms_by_node"] = matched_vms_by_node
+        return matched_vms_by_node
 
-    def get_matches():
-        worker_job = WorkerJob(fetch_all_guests, threading.Event())
-        app_state.queue.put(worker_job)
-        worker_job.done_event.wait()
-        return return_value["matched_vms_by_node"]
+    # def get_matches():
+    #     worker_job = WorkerJob(match_all_guests, threading.Event())
+    #     app_state.queue.put(worker_job)
+    #     worker_job.done_event.wait()
+    #     return return_value["matched_vms_by_node"]
 
-    matched_vms_by_node = await asyncio.to_thread(get_matches)
+    # matched_vms_by_node = await asyncio.to_thread(get_matches)
+
+    matched_vms_by_node = await run_in_pve_worker(app_state.queue, match_all_guests)
     # print(json.dumps(matched_vms_by_node, indent=2))
 
     def exec_starter(proxmox_api: ProxmoxAPI, invocation_guest: InvocationGuest):
@@ -147,13 +125,6 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
             exec_flag = vm["status"] == "running"
             exec_message = "done (vm not running)" if not exec_flag else "scheduled"
 
-            # invocation_guest = {
-            #     "node": node,
-            #     "vmid": vmid,
-            #     "exec_flag": exec_flag,
-            #     "exec_message": exec_message,
-            #     "vm_info": vm,
-            # }
             invocation_guest = InvocationGuest(
                 node=node,
                 vmid=vmid,

@@ -13,6 +13,7 @@ from pydantic import (
 
 from ..api_cmd_templates.models import CmdTemplateBase
 from ..api_exec_configs.router import ExecConfigResult
+from ..pve.schemas import PveQemuVm
 
 
 class InvocationGuest(BaseModel):
@@ -73,3 +74,26 @@ class NewInvocation(BaseModel):
         serialized = handler(self)
         serialized["fields"] = list(serialized)
         return serialized
+
+
+def check_vm_match(vm: PveQemuVm, exec_config: ExecConfigResult) -> bool:
+    # print(json.dumps(vm, indent=2))
+    tags: list[str] = vm.tags.split(";") if vm.tags is not None else []
+
+    found_in_includes = False
+    for tag in tags:
+        if tag in exec_config.include_tags:
+            found_in_includes = True
+            break
+    found_in_excludes = False
+    for tag in tags:
+        if tag in exec_config.exclude_tags:
+            found_in_excludes = True
+            break
+    if found_in_includes and not found_in_excludes:
+        return True
+
+    if vm.vmid in exec_config.include_vmids:
+        return True
+
+    return False
