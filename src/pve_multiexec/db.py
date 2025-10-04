@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import Annotated
 
 from fastapi import Depends
@@ -33,16 +34,28 @@ def db_init():
     SQLModel.metadata.create_all(_LocalState.engine)
 
 
-def get_session():
+@contextmanager
+def get_session_context():
     with Session(_LocalState.engine) as session:
+        yield session
+
+
+def get_session():
+    with get_session_context() as session:
         yield session
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
-def get_logs_session():
+@contextmanager
+def get_logs_session_context():
     with Session(_LocalState.logs_engine) as session:
+        yield session
+
+
+def get_logs_session():
+    with get_logs_session_context() as session:
         yield session
 
 

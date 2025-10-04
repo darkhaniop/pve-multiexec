@@ -49,7 +49,7 @@ async def get_db_invocation_from_new(
     logs_session.commit()
     logs_session.refresh(db_invocation)
 
-    background_tasks.add_task(run_invocation, db_invocation.id, logs_session)
+    background_tasks.add_task(run_invocation, db_invocation.id)
 
     return db_invocation
 

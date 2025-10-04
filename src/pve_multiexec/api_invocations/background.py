@@ -7,9 +7,9 @@ from typing import Any
 
 from proxmoxer import ProxmoxAPI
 from pydantic import BaseModel
-from sqlmodel import Session
 
 from ..common import app_state
+from ..db import get_logs_session_context
 from ..pve.schemas import PveQemuVm
 from ..pve.worker import run_in_pve_worker
 from .models import Invocation
@@ -27,13 +27,16 @@ class ExecData(BaseModel):
     vmid: int
 
 
-async def run_invocation(invocation_id: int | None, logs_session: Session) -> None:
+async def run_invocation(invocation_id: int | None) -> None:
     if invocation_id is None:
         return
-    db_invocation = logs_session.get(Invocation, invocation_id)
-    if not db_invocation:
-        return
-    invocation_response = InvocationResponse.model_validate(db_invocation.model_dump())
+    with get_logs_session_context() as session:
+        db_invocation = session.get(Invocation, invocation_id)
+        if not db_invocation:
+            return
+        invocation_response = InvocationResponse.model_validate(
+            db_invocation.model_dump()
+        )
     # logger.info(invocation_response.model_dump_json(indent=2))
 
     return_value = {"nodes": None, "vms_by_node": {}}
@@ -139,17 +142,23 @@ async def run_invocation(invocation_id: int | None, logs_session: Session) -> No
                     run_in_pve_worker(app_state.queue, exec_starter, [invocation_guest])
                 )
 
-    db_invocation.matched_guests_json = json.dumps(
-        [invocation_guest.model_dump() for invocation_guest in matched_vms]
-    )
-    logs_session.add(db_invocation)
-    logs_session.commit()
+    with get_logs_session_context() as session:
+        db_invocation = session.get(Invocation, invocation_id)
+        if db_invocation:
+            db_invocation.matched_guests_json = json.dumps(
+                [invocation_guest.model_dump() for invocation_guest in matched_vms]
+            )
+            session.add(db_invocation)
+            session.commit()
 
     _task_results = await asyncio.gather(*tasks)
 
-    db_invocation.matched_guests_json = json.dumps(
-        [invocation_guest.model_dump() for invocation_guest in matched_vms]
-    )
-    db_invocation.finished_at = datetime.now(timezone.utc)
-    logs_session.add(db_invocation)
-    logs_session.commit()
+    with get_logs_session_context() as session:
+        db_invocation = session.get(Invocation, invocation_id)
+        if db_invocation:
+            db_invocation.matched_guests_json = json.dumps(
+                [invocation_guest.model_dump() for invocation_guest in matched_vms]
+            )
+            db_invocation.finished_at = datetime.now(timezone.utc)
+            session.add(db_invocation)
+            session.commit()
