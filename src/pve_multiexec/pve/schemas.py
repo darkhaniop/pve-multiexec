@@ -81,27 +81,27 @@ class PveQemuVm(BaseModel):
         ),
     ]
     netout: Annotated[
-        float | None,
+        int | None,
         Field(
             default=None,
             description="The amount of traffic in bytes that was sent from the guest over the network since it was started.",
         ),
     ]
     pid: Annotated[
-        float | None,
+        int | None,
         Field(
             default=None, description="PID of the QEMU process, if the VM is running."
         ),
     ]
     qmpstatus: Annotated[
-        float | None,
+        str | None,
         Field(
             default=None,
             description="VM run state from the 'query-status' QMP monitor command.",
         ),
     ]
     running_machine: Annotated[
-        float | None,
+        str | None,
         Field(
             default=None,
             alias="running-machine",
@@ -109,7 +109,7 @@ class PveQemuVm(BaseModel):
         ),
     ]
     running_qemu: Annotated[
-        float | None,
+        str | None,
         Field(
             default=None,
             alias="running-qemu",
