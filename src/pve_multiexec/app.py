@@ -1,7 +1,5 @@
 import asyncio
-import json
 import logging
-import os
 import threading
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -18,6 +16,7 @@ from .api_exec_configs.router import (
 from .api_invocations.background import logger as background_logger
 from .api_invocations.router import router as invocations_router
 from .common import app_state
+from .config import settings
 from .db import db_init
 from .pve.schemas import PveNode, PveQemuVm
 from .pve.worker import WorkerJob, create_worker
@@ -31,24 +30,12 @@ worker_logger.setLevel(logging.INFO)
 background_logger.setLevel(logging.DEBUG)
 
 
-def load_config():
-    app_state.config_file = os.getenv("APP_CONFIG_FILE", app_state.config_file)
-    with open(app_state.config_file, "r", encoding="utf-8") as file_pointer:
-        app_state.config = json.load(file_pointer)
-
-    logger.debug("app_config")
-    logger.debug(json.dumps(app_state.config, indent=2))
-
-
-load_config()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db_init()
 
-    n_workers = app_state.config["n_workers"]
-    for i in range(n_workers):
+    n_workers = settings.n_workers
+    for _ in range(n_workers):
         app_state.workers.append(create_worker(app_state.queue))
 
     logger.debug(f"started {n_workers} workers")

@@ -1,17 +1,13 @@
-import os
-
-from dotenv import load_dotenv
 from proxmoxer import ProxmoxAPI
 
-load_dotenv()
+from ..config import settings
 
 
 def create_proxmox_api() -> ProxmoxAPI:
-    pve_host = os.getenv("MY_PVE_HOST")
-    print(f"pve_host={pve_host}")
-    pve_user = os.getenv("MY_PVE_USER")
-    pve_token_name = os.getenv("MY_PVE_TOKEN_NAME")
-    pve_token_secret = os.getenv("MY_PVE_TOKEN_UUID")
+    pve_host = settings.pve_host
+    pve_user = settings.pve_user
+    pve_token_name = settings.pve_token_name
+    pve_token_secret = settings.pve_token_uuid
     if not (pve_host and pve_user and pve_token_name and pve_token_secret):
         raise ValueError("""
         Must provide env vars:
@@ -26,5 +22,5 @@ def create_proxmox_api() -> ProxmoxAPI:
         user=pve_user,
         token_name=pve_token_name,
         token_value=pve_token_secret,
-        verify_ssl=False,
+        verify_ssl=settings.pve_verify_ssl,
     )

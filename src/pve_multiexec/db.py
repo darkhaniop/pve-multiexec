@@ -8,7 +8,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from .api_cmd_templates.models import db_init as cmd_templates_db_init
 from .api_exec_configs.models import db_init as exec_configs_db_init
 from .api_invocations.models import db_init as invocations_db_init
-from .common import app_state
+from .config import settings
 
 
 class _LocalState:
@@ -21,7 +21,7 @@ def db_init():
     exec_configs_db_init()
     invocations_db_init()
 
-    sqlite_file_name = app_state.config["db_file"]
+    sqlite_file_name = settings.db_file
     sqlite_url = f"sqlite:///{sqlite_file_name}"
 
     connect_args = {"check_same_thread": False}
