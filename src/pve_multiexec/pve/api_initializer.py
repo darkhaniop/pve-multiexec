@@ -9,13 +9,10 @@ def create_proxmox_api() -> ProxmoxAPI:
     pve_token_name = settings.pve_token_name
     pve_token_secret = settings.pve_token_uuid
     if not (pve_host and pve_user and pve_token_name and pve_token_secret):
-        raise ValueError("""
-        Must provide env vars:
-            MY_PVE_HOST
-            MY_PVE_USER
-            MY_PVE_TOKEN_NAME
-            MY_PVE_TOKEN_UUID
-        """)
+        raise ValueError(
+            "Must provide Proxmox VE credentials via environment variables or config "
+            "(MY_PVE_HOST, MY_PVE_USER, MY_PVE_TOKEN_NAME, MY_PVE_TOKEN_UUID)"
+        )
 
     return ProxmoxAPI(
         host=pve_host,
