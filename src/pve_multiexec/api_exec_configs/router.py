@@ -30,7 +30,7 @@ class ExecConfigResult(ExecConfigUpdate):
     cmd_template_id: int | None
 
 
-async def get_exec_config_by_id(session: SessionDep, exec_config_id: int) -> ExecConfig:
+def get_exec_config_by_id(session: SessionDep, exec_config_id: int) -> ExecConfig:
     db_exec_config = session.get(ExecConfig, exec_config_id)
     if not db_exec_config:
         raise HTTPException(status_code=404, detail="ExecConfig not found")
@@ -53,7 +53,7 @@ def beu2beb(exec_config: ExecConfigUpdate) -> ExecConfigBase:
     )
 
 
-async def get_valid_exec_config(
+def get_valid_exec_config(
     session: SessionDep, exec_config: ExecConfigUpdate
 ) -> ExecConfigBase:
     cmd_template_id = exec_config.cmd_template_id
@@ -72,7 +72,7 @@ ValidExecConfigDep = Annotated[ExecConfigBase, Depends(get_valid_exec_config)]
 
 
 @router.get("/", response_model=list[ExecConfigResult])
-async def get_exec_configs(session: SessionDep):
+def get_exec_configs(session: SessionDep):
     """Read a subset of ExecConfigs"""
 
     exec_configs = session.exec(select(ExecConfig)).all()
@@ -80,7 +80,7 @@ async def get_exec_configs(session: SessionDep):
 
 
 @router.post("/", response_model=ExecConfigResult)
-async def create_exec_config(session: SessionDep, new_exec_config: ValidExecConfigDep):
+def create_exec_config(session: SessionDep, new_exec_config: ValidExecConfigDep):
     """Create a new ExecConfig"""
 
     db_exec_config = ExecConfig.model_validate(new_exec_config)
@@ -91,14 +91,14 @@ async def create_exec_config(session: SessionDep, new_exec_config: ValidExecConf
 
 
 @router.get("/{exec_config_id}", response_model=ExecConfigResult)
-async def read_exec_config(db_exec_config: DbExecConfigDep):
+def read_exec_config(db_exec_config: DbExecConfigDep):
     """Read an ExecConfig by id"""
 
     return db_exec_config
 
 
 @router.put("/{exec_config_id}", response_model=ExecConfigResult)
-async def update_exec_config(
+def update_exec_config(
     session: SessionDep,
     db_exec_config: DbExecConfigDep,
     updated_exec_config: ValidExecConfigDep,
@@ -113,7 +113,7 @@ async def update_exec_config(
 
 
 @router.delete("/{exec_config_id}")
-async def delete_exec_config(session: SessionDep, db_exec_config: DbExecConfigDep):
+def delete_exec_config(session: SessionDep, db_exec_config: DbExecConfigDep):
     """Delete an ExecConfig by id"""
 
     exec_config_id = db_exec_config.id

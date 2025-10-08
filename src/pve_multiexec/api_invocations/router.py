@@ -13,14 +13,14 @@ from .utils import InvocationResponse, NewInvocation
 router = APIRouter()
 
 
-async def get_db_invocation_from_new(
+def get_db_invocation_from_new(
     background_tasks: BackgroundTasks,
     session: SessionDep,
     logs_session: LogsSessionDep,
     new_invocation: NewInvocation,
 ) -> Invocation:
     exec_config_id = new_invocation.exec_config_id
-    db_exec_config = await get_exec_config_by_id(session, exec_config_id)
+    db_exec_config = get_exec_config_by_id(session, exec_config_id)
     exec_config = ExecConfigResult.model_validate(db_exec_config.model_dump())
     cmd_template_id = db_exec_config.cmd_template_id
     if cmd_template_id is None:
@@ -58,7 +58,7 @@ DbInvocationFromNewDep = Annotated[InvocationBase, Depends(get_db_invocation_fro
 
 
 @router.get("/", response_model=list[InvocationResponse])
-async def get_invocations(session: LogsSessionDep):
+def get_invocations(session: LogsSessionDep):
     """Read a subset of Invocations"""
 
     db_invocations = session.exec(select(Invocation)).all()
@@ -66,7 +66,5 @@ async def get_invocations(session: LogsSessionDep):
 
 
 @router.post("/", response_model=InvocationResponse)
-async def create_invocation(
-    session: LogsSessionDep, db_invocation: DbInvocationFromNewDep
-):
+def create_invocation(session: LogsSessionDep, db_invocation: DbInvocationFromNewDep):
     return db_invocation

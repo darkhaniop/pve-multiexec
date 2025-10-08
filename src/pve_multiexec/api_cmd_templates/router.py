@@ -8,13 +8,13 @@ router = APIRouter()
 
 
 @router.get("/", response_model=list[CmdTemplate])
-async def get_cmd_templates(session: SessionDep):
+def get_cmd_templates(session: SessionDep):
     cmd_templates = session.exec(select(CmdTemplate)).all()
     return cmd_templates
 
 
 @router.post("/", response_model=CmdTemplate)
-async def create_cmd_template(
+def create_cmd_template(
     session: SessionDep, cmd_template: CmdTemplateBase
 ) -> CmdTemplate:
     """Create a new cmd template"""
@@ -27,7 +27,7 @@ async def create_cmd_template(
 
 
 @router.get("/{cmd_template_id}")
-async def read_cmd_template(session: SessionDep, cmd_template_id: int) -> CmdTemplate:
+def read_cmd_template(session: SessionDep, cmd_template_id: int) -> CmdTemplate:
     """Read an cmd template by id"""
 
     db_cmd_template = session.get(CmdTemplate, cmd_template_id)
@@ -37,7 +37,7 @@ async def read_cmd_template(session: SessionDep, cmd_template_id: int) -> CmdTem
 
 
 @router.put("/{cmd_template_id}")
-async def update_cmd_template(
+def update_cmd_template(
     session: SessionDep, cmd_template_id: int, cmd_template: CmdTemplateBase
 ) -> CmdTemplate:
     """Update an existing cmd template"""
@@ -54,7 +54,7 @@ async def update_cmd_template(
 
 
 @router.delete("/{cmd_template_id}")
-async def delete_cmd_template(session: SessionDep, cmd_template_id: int):
+def delete_cmd_template(session: SessionDep, cmd_template_id: int):
     """Delete an cmd template by id"""
 
     db_cmd_template = session.get(CmdTemplate, cmd_template_id)
