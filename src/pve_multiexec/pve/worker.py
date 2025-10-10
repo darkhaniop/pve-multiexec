@@ -21,7 +21,7 @@ from .api_initializer import create_proxmox_api
 @dataclass
 class WorkerJob:
     func: Callable[[ProxmoxAPI], Any]
-    done_event: threading.Event
+    done_event: threading.Event | None = None
     exc: Exception | None = None
 
 
@@ -49,14 +49,15 @@ def _run_worker(state: WorkerState) -> None:
             logger.debug(f"worker-{ident}: tick {state.tick}")
         try:
             job = state.queue.get(timeout=0.2)
-            logger.debug(f"worker-{ident}: job ...")
+            logger.debug(f"job running in {ident}")
             try:
                 job.func(proxmox_api)
             except Exception as exc:
                 logger.exception(f"worker-{ident}: job failed with exception")
                 job.exc = exc
             finally:
-                job.done_event.set()
+                if job.done_event is not None:
+                    job.done_event.set()
             state.jobs_done += 1
             logger.debug(f"worker-{ident}: job done (total: {state.jobs_done})")
         except queue.Empty:
@@ -78,35 +79,31 @@ def create_worker(queue: queue.Queue) -> WorkerState:
     return worker_state
 
 
-@dataclass
-class _JobResult:
-    result: Any = None
-
-
 async def run_in_pve_worker(
     job_queue: queue.Queue,
     func: Callable[..., Any],
     args: list[Any] | None = None,
     kwargs: dict[str, Any] | None = None,
 ) -> Any:
-    job_result = _JobResult()
-
     if args is None:
         args = []
 
     if kwargs is None:
         kwargs = {}
 
-    def wrapper(proxmox_api: ProxmoxAPI) -> None:
-        job_result.result = func(proxmox_api, *args, **kwargs)
+    loop = asyncio.get_running_loop()
+    future: asyncio.Future = loop.create_future()
 
-    worker_job = WorkerJob(wrapper, threading.Event())
+    def wrapper(proxmox_api: ProxmoxAPI) -> None:
+        try:
+            res = func(proxmox_api, *args, **kwargs)
+            if not future.cancelled():
+                loop.call_soon_threadsafe(future.set_result, res)
+        except Exception as exc:  # noqa: BLE001
+            if not future.cancelled():
+                loop.call_soon_threadsafe(future.set_exception, exc)
+
+    worker_job = WorkerJob(func=wrapper)
     job_queue.put(worker_job)
 
-    while not worker_job.done_event.is_set():
-        await asyncio.sleep(0.1)
-
-    if worker_job.exc is not None:
-        raise worker_job.exc
-
-    return job_result.result
+    return await future
