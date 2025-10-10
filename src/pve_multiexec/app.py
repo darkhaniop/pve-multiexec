@@ -1,11 +1,8 @@
-import asyncio
 import logging
-import threading
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import FastAPI
-from proxmoxer import ProxmoxAPI
+from fastapi import FastAPI, HTTPException
 
 from .api_cmd_templates.router import (
     router as cmd_templates_router,
@@ -19,7 +16,7 @@ from .common import app_state
 from .config import settings
 from .db import db_init
 from .pve.schemas import PveNode, PveQemuVm
-from .pve.worker import WorkerJob, create_worker
+from .pve.worker import create_worker, run_in_pve_worker
 from .pve.worker import logger as worker_logger
 
 logging.basicConfig()
@@ -65,21 +62,14 @@ async def root():
 @app.get("/nodes")
 async def get_nodes() -> list[PveNode]:
     """Cluster node index."""
-
-    return_value = {"response": None}
-
-    def _fetch_function(proxmox_api: ProxmoxAPI):
-        logger.info(f"job running in {threading.get_ident()}")
-        return_value["response"] = proxmox_api.nodes.get()
-
-    def _get_nodes_in_worker():
-        worker_job = WorkerJob(_fetch_function, threading.Event())
-        app_state.queue.put(worker_job)
-        worker_job.done_event.wait()
-        return return_value["response"]
-
-    nodes = await asyncio.to_thread(_get_nodes_in_worker)
-    return nodes
+    try:
+        nodes = await run_in_pve_worker(app_state.queue, lambda api: api.nodes.get())
+        return nodes
+    except Exception as exc:
+        logger.error(f"Error fetching cluster nodes: {exc}")
+        raise HTTPException(
+            status_code=502, detail=f"Failed to fetch nodes from Proxmox VE: {exc}"
+        ) from exc
 
 
 @app.get("/nodes/{node}/vms", responses={404: {"description": "Unavailable node."}})
@@ -87,21 +77,16 @@ async def get_node_vms(
     node: Annotated[str, "The cluster node name."],
 ) -> list[PveQemuVm]:
     """Virtual machine index (per node)."""
-
-    return_value = {"response": None}
-
-    def _fetch_function(proxmox_api: ProxmoxAPI):
-        logger.info(f"job running in {threading.get_ident()}")
-        return_value["response"] = proxmox_api.nodes(node).qemu.get()
-
-    def _get_node_qemu_in_worker():
-        worker_job = WorkerJob(_fetch_function, threading.Event())
-        app_state.queue.put(worker_job)
-        worker_job.done_event.wait()
-        return return_value["response"]
-
-    node_vms = await asyncio.to_thread(_get_node_qemu_in_worker)
-    return node_vms
+    try:
+        node_vms = await run_in_pve_worker(
+            app_state.queue, lambda api, n: api.nodes(n).qemu.get(), [node]
+        )
+        return node_vms
+    except Exception as exc:
+        logger.error(f"Error fetching VMs for node {node}: {exc}")
+        raise HTTPException(
+            status_code=404, detail=f"Node '{node}' not found or unavailable"
+        ) from exc
 
 
 app.include_router(
