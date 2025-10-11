@@ -39,37 +39,23 @@ async def run_invocation(invocation_id: int | None) -> None:
         )
     # logger.info(invocation_response.model_dump_json(indent=2))
 
-    return_value = {"nodes": None, "vms_by_node": {}}
-
     def match_all_guests(proxmox_api: ProxmoxAPI):
-        return_value["nodes"] = proxmox_api.nodes.get()
-
-        vms_by_node: dict[str, list[dict[str, Any]]] = {}
-        matched_vms_by_node = {}
-        for node_info in return_value["nodes"]:
+        nodes_list = proxmox_api.nodes.get()
+        matched_vms_by_node: dict[str, list[dict[str, Any]]] = {}
+        for node_info in nodes_list:
             node = node_info["node"]
             matched_vms_by_node[node] = []
             if node_info["status"] != "online":
                 continue
-            vms_by_node[node] = proxmox_api.nodes(node).qemu.get()
-            # print(json.dumps(vms_by_node[node], indent=2))
-            for vm in vms_by_node[node]:
+            node_vms = proxmox_api.nodes(node).qemu.get()
+            # print(json.dumps(node_vms, indent=2))
+            for vm in node_vms:
                 if check_vm_match(
                     PveQemuVm.model_validate(vm), invocation_response.exec_config
                 ):
                     matched_vms_by_node[node].append(vm)
 
-        return_value["vms_by_node"] = vms_by_node
-        return_value["matched_vms_by_node"] = matched_vms_by_node
         return matched_vms_by_node
-
-    # def get_matches():
-    #     worker_job = WorkerJob(match_all_guests, threading.Event())
-    #     app_state.queue.put(worker_job)
-    #     worker_job.done_event.wait()
-    #     return return_value["matched_vms_by_node"]
-
-    # matched_vms_by_node = await asyncio.to_thread(get_matches)
 
     matched_vms_by_node = await run_in_pve_worker(app_state.queue, match_all_guests)
     # print(json.dumps(matched_vms_by_node, indent=2))

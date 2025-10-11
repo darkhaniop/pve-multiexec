@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     config_file: str = Field(
         default="config.json",
         validation_alias=AliasChoices("app_config_file", "config_file"),
-        description="Optional JSON configuration file path (prevously, this was required).",
+        description="Optional JSON configuration file path.",
     )
 
 
