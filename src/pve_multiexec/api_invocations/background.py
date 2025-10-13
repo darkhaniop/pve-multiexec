@@ -27,6 +27,25 @@ class ExecData(BaseModel):
     vmid: int
 
 
+def _start_guest_exec(proxmox_api: ProxmoxAPI, node: str, vmid: int, cmd: str) -> int:
+    exec_data = ExecData(command=[cmd], node=node, vmid=vmid)
+    exec_response: dict = (
+        proxmox_api.nodes(node).qemu(vmid).agent("exec").post(**exec_data.model_dump())
+    )
+    return exec_response.get("pid", -1)
+
+
+def _get_guest_exec_status(
+    proxmox_api: ProxmoxAPI, node: str, vmid: int, pid: int
+) -> dict[str, Any]:
+    return (
+        proxmox_api.nodes(node)
+        .qemu(vmid)
+        .agent("exec-status")
+        .get(node=node, vmid=vmid, pid=pid)
+    )
+
+
 async def run_invocation(invocation_id: int | None) -> None:
     if invocation_id is None:
         return
@@ -60,48 +79,51 @@ async def run_invocation(invocation_id: int | None) -> None:
     matched_vms_by_node = await run_in_pve_worker(app_state.queue, match_all_guests)
     # print(json.dumps(matched_vms_by_node, indent=2))
 
-    def exec_starter(proxmox_api: ProxmoxAPI, invocation_guest: InvocationGuest):
+    async def execute_guest(invocation_guest: InvocationGuest) -> None:
         node = invocation_guest.node
         vmid = invocation_guest.vmid
+        cmd = invocation_response.cmd_template.template
 
-        exec_data = ExecData(
-            command=[invocation_response.cmd_template.template], node=node, vmid=vmid
-        )
-        exec_response: dict = (
-            proxmox_api.nodes(node)
-            .qemu(vmid)
-            .agent("exec")
-            .post(**exec_data.model_dump())
-        )
-        pid: int = exec_response.get("pid", -1)
-        if pid <= 0:
-            # error
-            return
-        invocation_guest.exec_pid = pid
-
-        start_time = time.monotonic()
-        duration = 0
-        exec_status_params = {"node": node, "vmid": vmid, "pid": pid}
-        process_exited = False
-        while not process_exited and duration < EXEC_WAIT_TIMEOUT:
-            time.sleep(0.4)
-            exec_status_response: dict[str, Any] = (
-                proxmox_api.nodes(node)
-                .qemu(vmid)
-                .agent("exec-status")
-                .get(**exec_status_params)
+        try:
+            pid = await run_in_pve_worker(
+                app_state.queue, _start_guest_exec, [node, vmid, cmd]
             )
-            process_exited: bool = exec_status_response.get("exited", False)
-            duration = time.monotonic() - start_time
+        except Exception as exc:  # noqa: BLE001
+            logger.error(f"Failed to start exec on {node}/{vmid}: {exc}")
+            invocation_guest.exec_message = f"error starting: {exc}"
+            return
+
+        if pid <= 0:
+            invocation_guest.exec_message = "error starting (invalid pid)"
+            return
+
+        invocation_guest.exec_pid = pid
+        start_time = time.monotonic()
+        process_exited = False
+        exec_status_response: dict[str, Any] = {}
+
+        while (
+            not process_exited and (time.monotonic() - start_time) < EXEC_WAIT_TIMEOUT
+        ):
+            await asyncio.sleep(0.5)
+            try:
+                exec_status_response = await run_in_pve_worker(
+                    app_state.queue, _get_guest_exec_status, [node, vmid, pid]
+                )
+                process_exited = bool(exec_status_response.get("exited", False))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    f"Error checking exec-status on {node}/{vmid} pid={pid}: {exc}"
+                )
 
         invocation_guest.exec_message = (
             f"done ({exec_status_response.get('exitcode', '-')})"
         )
-        exec_status = json.loads(json.dumps(exec_status_response))
-        if "out-data" in exec_status:
+        exec_status = dict(exec_status_response)
+        if "out-data" in exec_status and isinstance(exec_status["out-data"], str):
             # write only the tail of stdout
             exec_status["out-data"] = exec_status["out-data"][-200:]
-        if "err-data" in exec_status:
+        if "err-data" in exec_status and isinstance(exec_status["err-data"], str):
             # write only the tail of stderr
             exec_status["err-data"] = exec_status["err-data"][-200:]
         invocation_guest.exec_status = exec_status
@@ -124,9 +146,7 @@ async def run_invocation(invocation_id: int | None) -> None:
             matched_vms.append(invocation_guest)
 
             if exec_flag:
-                tasks.append(
-                    run_in_pve_worker(app_state.queue, exec_starter, [invocation_guest])
-                )
+                tasks.append(execute_guest(invocation_guest))
 
     with get_logs_session_context() as session:
         db_invocation = session.get(Invocation, invocation_id)
