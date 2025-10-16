@@ -41,6 +41,7 @@ def main():
     logger.debug(f"main (thread-{ident}): jobs submitted {start_time}")
 
     try:
+        assert job2.done_event is not None
         while not job2.done_event.is_set():
             time.sleep(0.2)
         if job2.done_event.is_set():
