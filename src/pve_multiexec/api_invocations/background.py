@@ -8,7 +8,6 @@ from typing import Any
 from proxmoxer import ProxmoxAPI
 from pydantic import BaseModel
 
-from ..common import app_state
 from ..db import get_logs_session_context
 from ..pve.schemas import PveQemuVm
 from ..pve.worker import run_in_pve_worker
@@ -76,7 +75,7 @@ async def run_invocation(invocation_id: int | None) -> None:
 
         return matched_vms_by_node
 
-    matched_vms_by_node = await run_in_pve_worker(app_state.queue, match_all_guests)
+    matched_vms_by_node = await run_in_pve_worker(match_all_guests)
     # print(json.dumps(matched_vms_by_node, indent=2))
 
     async def execute_guest(invocation_guest: InvocationGuest) -> None:
@@ -85,9 +84,7 @@ async def run_invocation(invocation_id: int | None) -> None:
         cmd = invocation_response.cmd_template.template
 
         try:
-            pid = await run_in_pve_worker(
-                app_state.queue, _start_guest_exec, [node, vmid, cmd]
-            )
+            pid = await run_in_pve_worker(_start_guest_exec, [node, vmid, cmd])
         except Exception as exc:  # noqa: BLE001
             logger.error(f"Failed to start exec on {node}/{vmid}: {exc}")
             invocation_guest.exec_message = f"error starting: {exc}"
@@ -108,7 +105,7 @@ async def run_invocation(invocation_id: int | None) -> None:
             await asyncio.sleep(0.5)
             try:
                 exec_status_response = await run_in_pve_worker(
-                    app_state.queue, _get_guest_exec_status, [node, vmid, pid]
+                    _get_guest_exec_status, [node, vmid, pid]
                 )
                 process_exited = bool(exec_status_response.get("exited", False))
             except Exception as exc:  # noqa: BLE001

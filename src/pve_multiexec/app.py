@@ -1,4 +1,5 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from typing import Annotated
 
@@ -16,8 +17,8 @@ from .common import app_state
 from .config import settings
 from .db import db_init
 from .pve.schemas import PveNode, PveQemuVm
-from .pve.worker import create_worker, run_in_pve_worker
 from .pve.worker import logger as worker_logger
+from .pve.worker import run_in_pve_worker
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -31,23 +32,16 @@ background_logger.setLevel(logging.DEBUG)
 async def lifespan(app: FastAPI):
     db_init()
 
-    n_workers = settings.n_workers
-    for _ in range(n_workers):
-        app_state.workers.append(create_worker(app_state.queue))
-
-    logger.debug(f"started {n_workers} workers")
+    app_state.executor = ThreadPoolExecutor(
+        max_workers=settings.n_workers, thread_name_prefix="pve-worker"
+    )
+    logger.debug(f"started thread pool with {settings.n_workers} workers")
 
     yield
 
-    logger.debug("stopped workers ...")
-
-    # do not call join in the first loop for a slightly quicker shutdown
-    for worker in app_state.workers:
-        worker.stop_requested.set()
-
-    for worker in app_state.workers:
-        worker.thread.join()
-
+    logger.debug("shutting down thread pool workers...")
+    if app_state.executor is not None:
+        app_state.executor.shutdown(wait=True, cancel_futures=True)
     logger.debug("stopped all workers")
 
 
@@ -63,7 +57,7 @@ async def root():
 async def get_nodes() -> list[PveNode]:
     """Cluster node index."""
     try:
-        nodes = await run_in_pve_worker(app_state.queue, lambda api: api.nodes.get())
+        nodes = await run_in_pve_worker(lambda api: api.nodes.get())
         return nodes
     except Exception as exc:
         logger.error(f"Error fetching cluster nodes: {exc}")
@@ -79,7 +73,7 @@ async def get_node_vms(
     """Virtual machine index (per node)."""
     try:
         node_vms = await run_in_pve_worker(
-            app_state.queue, lambda api, n: api.nodes(n).qemu.get(), [node]
+            lambda api, n: api.nodes(n).qemu.get(), [node]
         )
         return node_vms
     except Exception as exc:

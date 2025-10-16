@@ -10,6 +10,7 @@ import logging
 import queue
 import threading
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,7 +18,51 @@ from proxmoxer import ProxmoxAPI
 
 from .api_initializer import create_proxmox_api
 
+logger = logging.getLogger(__name__)
 
+_thread_local = threading.local()
+
+
+def get_thread_proxmox_api() -> ProxmoxAPI:
+    """Get or lazily initialize the ProxmoxAPI instance for the current thread.
+
+    Maintains HTTP keep-alive connection reuse per worker thread.
+    """
+    if not hasattr(_thread_local, "proxmox_api"):
+        _thread_local.proxmox_api = create_proxmox_api()
+    return _thread_local.proxmox_api
+
+
+def _execute_in_worker(
+    func: Callable[..., Any], args: list[Any], kwargs: dict[str, Any]
+) -> Any:
+    ident = threading.get_ident()
+    logger.debug(f"job running in {ident}")
+    api = get_thread_proxmox_api()
+    return func(api, *args, **kwargs)
+
+
+async def run_in_pve_worker(
+    func: Callable[..., Any],
+    args: list[Any] | None = None,
+    kwargs: dict[str, Any] | None = None,
+    executor: ThreadPoolExecutor | None = None,
+) -> Any:
+    """Execute a synchronous ProxmoxAPI function inside the worker thread pool."""
+    if args is None:
+        args = []
+    if kwargs is None:
+        kwargs = {}
+
+    from ..common import app_state
+
+    pool: ThreadPoolExecutor | None = executor or getattr(app_state, "executor", None)
+
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(pool, _execute_in_worker, func, args, kwargs)
+
+
+# Backward compatibility classes & functions
 @dataclass
 class WorkerJob:
     func: Callable[[ProxmoxAPI], Any]
@@ -34,13 +79,9 @@ class WorkerState:
     tick: int = 0
 
 
-logger = logging.getLogger(__name__)
-
-
 def _run_worker(state: WorkerState) -> None:
     ident = threading.get_ident()
     logger.debug(f"worker-{ident}: ...")
-
     proxmox_api = create_proxmox_api()
 
     while not state.stop_requested.is_set():
@@ -70,40 +111,7 @@ def create_worker(queue: queue.Queue) -> WorkerState:
     worker_state = WorkerState(
         stop_requested=threading.Event(), queue=queue, thread=threading.Thread()
     )
-
     thread = threading.Thread(target=_run_worker, kwargs={"state": worker_state})
     worker_state.thread = thread
-
     thread.start()
-
     return worker_state
-
-
-async def run_in_pve_worker(
-    job_queue: queue.Queue,
-    func: Callable[..., Any],
-    args: list[Any] | None = None,
-    kwargs: dict[str, Any] | None = None,
-) -> Any:
-    if args is None:
-        args = []
-
-    if kwargs is None:
-        kwargs = {}
-
-    loop = asyncio.get_running_loop()
-    future: asyncio.Future = loop.create_future()
-
-    def wrapper(proxmox_api: ProxmoxAPI) -> None:
-        try:
-            res = func(proxmox_api, *args, **kwargs)
-            if not future.cancelled():
-                loop.call_soon_threadsafe(future.set_result, res)
-        except Exception as exc:  # noqa: BLE001
-            if not future.cancelled():
-                loop.call_soon_threadsafe(future.set_exception, exc)
-
-    worker_job = WorkerJob(func=wrapper)
-    job_queue.put(worker_job)
-
-    return await future
