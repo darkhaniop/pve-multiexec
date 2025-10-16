@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from sqlmodel import select
 
 from ..db import SessionDep
@@ -13,7 +13,7 @@ def get_cmd_templates(session: SessionDep):
     return cmd_templates
 
 
-@router.post("/", response_model=CmdTemplate)
+@router.post("/", response_model=CmdTemplate, status_code=status.HTTP_201_CREATED)
 def create_cmd_template(
     session: SessionDep, cmd_template: CmdTemplateBase
 ) -> CmdTemplate:
@@ -53,8 +53,8 @@ def update_cmd_template(
     return db_cmd_template
 
 
-@router.delete("/{cmd_template_id}")
-def delete_cmd_template(session: SessionDep, cmd_template_id: int):
+@router.delete("/{cmd_template_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_cmd_template(session: SessionDep, cmd_template_id: int) -> None:
     """Delete an cmd template by id"""
 
     db_cmd_template = session.get(CmdTemplate, cmd_template_id)
@@ -63,5 +63,3 @@ def delete_cmd_template(session: SessionDep, cmd_template_id: int):
 
     session.delete(db_cmd_template)
     session.commit()
-
-    return {"status": "deleted", "id": cmd_template_id}

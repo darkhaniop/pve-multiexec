@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlmodel import select
 
 from ..api_cmd_templates.models import CmdTemplate
@@ -65,6 +65,8 @@ def get_invocations(session: LogsSessionDep):
     return db_invocations
 
 
-@router.post("/", response_model=InvocationResponse)
+@router.post(
+    "/", response_model=InvocationResponse, status_code=status.HTTP_201_CREATED
+)
 def create_invocation(session: LogsSessionDep, db_invocation: DbInvocationFromNewDep):
     return db_invocation

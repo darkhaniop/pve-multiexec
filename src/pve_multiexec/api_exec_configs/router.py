@@ -1,7 +1,7 @@
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, BeforeValidator, Field
 from sqlmodel import select
 
@@ -79,7 +79,7 @@ def get_exec_configs(session: SessionDep):
     return exec_configs
 
 
-@router.post("/", response_model=ExecConfigResult)
+@router.post("/", response_model=ExecConfigResult, status_code=status.HTTP_201_CREATED)
 def create_exec_config(session: SessionDep, new_exec_config: ValidExecConfigDep):
     """Create a new ExecConfig"""
 
@@ -112,13 +112,9 @@ def update_exec_config(
     return db_exec_config
 
 
-@router.delete("/{exec_config_id}")
-def delete_exec_config(session: SessionDep, db_exec_config: DbExecConfigDep):
+@router.delete("/{exec_config_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_exec_config(session: SessionDep, db_exec_config: DbExecConfigDep) -> None:
     """Delete an ExecConfig by id"""
-
-    exec_config_id = db_exec_config.id
 
     session.delete(db_exec_config)
     session.commit()
-
-    return {"status": "deleted", "id": exec_config_id}
