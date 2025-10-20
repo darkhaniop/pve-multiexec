@@ -1,5 +1,8 @@
 # pve-multiexec
 
+> Renaming note (`pve-drop-guest-caches` -> `pve-multiexec`): Initially created as a way to execute `drop_caches` on a subset of guest VMs to quickly free-up non-essential RAM usage on a PVE node to allow launching Memory-heavy workloads (temporary RAM underprovisioning).
+> Then, it was turned into a more generic tool to execute commands on multiple guests and renamed to `pve-multiexec`.
+
 A simple utility that provides a RESTful API for batch execting commands in Proxmox VE quest VMs with `qemu-quest-agent` (e.g., `drop_caches` in non-essential guests).
 
 ## Running a Dev Server
@@ -23,21 +26,21 @@ Just a reminder for myself about the next steps.
 
 Higher priority:
 
-* Implement the invocations endpoint, this is a more generic approach compared to the previous `drop_caches`, single command.
-* Implement aggregate memory consumption info endpoint.
-* Sanitize the list of VMs based on running states of the VMs (not guaranteed to be accurate, because fetching VM states and posting `drop_caches` cannot be done atomically, but allow not sending requests to VMs that are known to be offline or missing).
+* [x] Implement the invocations endpoint, this is a more generic approach compared to the previous `drop_caches`, single command.
+* [ ] Implement aggregate memory consumption info endpoint.
+* [ ] Sanitize the list of VMs based on running states of the VMs (not guaranteed to be accurate, because fetching VM states and posting `drop_caches` cannot be done atomically, but allow not sending requests to VMs that are known to be offline or missing).
 
 Lower priority:
 
-* Implement more flexible filtering methods for VM selection.
-* Implement custom commands (e.g., view system info)
-* **done** Run 2-3 workers, so that `drop_caches` POST requests can be sent in parallel.
-* Rate-limit calls to the upstream server with `cachetools`.
-* Add the CLI script
-* Add CLI params to set
-    * the number of workers
-    * the usual host and port
-    * cache TTL
+* [ ] Implement more flexible filtering methods for VM selection.
+* [x] Implement custom commands (e.g., view system info). `pve-multiexec` is now more generic.
+* [x] Run 2-3 workers, so that `drop_caches` POST requests can be sent in parallel.
+* [ ] Rate-limit calls to the upstream server with `cachetools`.
+* [ ] Add the CLI script
+* [ ] Add CLI params to set
+    * [ ] the number of workers
+    * [ ] the usual host and port
+    * [ ] cache TTL
     * etc.
 
 Superseded:
