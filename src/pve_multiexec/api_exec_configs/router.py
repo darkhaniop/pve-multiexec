@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, BeforeValidator, Field
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from ..api_cmd_templates.models import CmdTemplate
 from ..common.utils import to_list_validator
@@ -40,11 +40,10 @@ def get_exec_config_by_id(session: SessionDep, exec_config_id: int) -> ExecConfi
 DbExecConfigDep = Annotated[ExecConfig, Depends(get_exec_config_by_id)]
 
 
-def beu2beb(exec_config: ExecConfigUpdate) -> ExecConfigBase:
+def serialize_exec_config_fields(exec_config: ExecConfigUpdate) -> ExecConfigBase:
     STR_FIELDS = ["include_tags", "exclude_tags", "include_vmids"]
 
     exec_config_obj = exec_config.model_dump()
-    print(exec_config_obj)
     return ExecConfigBase.model_validate(
         {
             **exec_config_obj,
@@ -53,22 +52,19 @@ def beu2beb(exec_config: ExecConfigUpdate) -> ExecConfigBase:
     )
 
 
-def get_valid_exec_config(
-    session: SessionDep, exec_config: ExecConfigUpdate
+def validate_and_prepare_exec_config(
+    session: Session, exec_config: ExecConfigUpdate
 ) -> ExecConfigBase:
     cmd_template_id = exec_config.cmd_template_id
-    if cmd_template_id is None:
-        return beu2beb(exec_config)
-    db_cmd_template = session.get(CmdTemplate, cmd_template_id)
-    if not db_cmd_template:
-        raise HTTPException(
-            status_code=404, detail=f"CmdTemplate with id={cmd_template_id} not found"
-        )
+    if cmd_template_id is not None:
+        db_cmd_template = session.get(CmdTemplate, cmd_template_id)
+        if not db_cmd_template:
+            raise HTTPException(
+                status_code=404,
+                detail=f"CmdTemplate with id={cmd_template_id} not found",
+            )
 
-    return beu2beb(exec_config)
-
-
-ValidExecConfigDep = Annotated[ExecConfigBase, Depends(get_valid_exec_config)]
+    return serialize_exec_config_fields(exec_config)
 
 
 @router.get("/", response_model=list[ExecConfigResult])
@@ -80,10 +76,13 @@ def get_exec_configs(session: SessionDep):
 
 
 @router.post("/", response_model=ExecConfigResult, status_code=status.HTTP_201_CREATED)
-def create_exec_config(session: SessionDep, new_exec_config: ValidExecConfigDep):
+def create_exec_config(
+    session: SessionDep, exec_config_in: ExecConfigUpdate
+) -> ExecConfig:
     """Create a new ExecConfig"""
 
-    db_exec_config = ExecConfig.model_validate(new_exec_config)
+    valid_exec_config = validate_and_prepare_exec_config(session, exec_config_in)
+    db_exec_config = ExecConfig.model_validate(valid_exec_config)
     session.add(db_exec_config)
     session.commit()
     session.refresh(db_exec_config)
@@ -91,7 +90,7 @@ def create_exec_config(session: SessionDep, new_exec_config: ValidExecConfigDep)
 
 
 @router.get("/{exec_config_id}", response_model=ExecConfigResult)
-def read_exec_config(db_exec_config: DbExecConfigDep):
+def read_exec_config(db_exec_config: DbExecConfigDep) -> ExecConfig:
     """Read an ExecConfig by id"""
 
     return db_exec_config
@@ -101,11 +100,12 @@ def read_exec_config(db_exec_config: DbExecConfigDep):
 def update_exec_config(
     session: SessionDep,
     db_exec_config: DbExecConfigDep,
-    updated_exec_config: ValidExecConfigDep,
-):
+    exec_config_in: ExecConfigUpdate,
+) -> ExecConfig:
     """Update an existing ExecConfig"""
 
-    exec_config_data = updated_exec_config.model_dump()
+    valid_exec_config = validate_and_prepare_exec_config(session, exec_config_in)
+    exec_config_data = valid_exec_config.model_dump()
     db_exec_config.sqlmodel_update(exec_config_data)
     session.commit()
     session.refresh(db_exec_config)
