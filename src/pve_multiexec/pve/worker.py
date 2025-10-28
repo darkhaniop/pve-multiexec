@@ -21,6 +21,18 @@ from .api_initializer import create_proxmox_api
 logger = logging.getLogger(__name__)
 
 _thread_local = threading.local()
+_default_executor: ThreadPoolExecutor | None = None
+
+
+def get_pve_executor() -> ThreadPoolExecutor | None:
+    """Get the active PVE worker thread pool executor."""
+    return _default_executor
+
+
+def set_pve_executor(executor: ThreadPoolExecutor | None) -> None:
+    """Set the active PVE worker thread pool executor."""
+    global _default_executor
+    _default_executor = executor
 
 
 def get_thread_proxmox_api() -> ProxmoxAPI:
@@ -54,9 +66,7 @@ async def run_in_pve_worker(
     if kwargs is None:
         kwargs = {}
 
-    from ..common import app_state
-
-    pool: ThreadPoolExecutor | None = executor or getattr(app_state, "executor", None)
+    pool: ThreadPoolExecutor | None = executor or get_pve_executor()
 
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(pool, _execute_in_worker, func, args, kwargs)

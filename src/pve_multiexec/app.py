@@ -13,12 +13,11 @@ from .api_exec_configs.router import (
 )
 from .api_invocations.background import logger as background_logger
 from .api_invocations.router import router as invocations_router
-from .common import app_state
 from .config import settings
 from .db import db_init
 from .pve.schemas import PveNode, PveQemuVm
 from .pve.worker import logger as worker_logger
-from .pve.worker import run_in_pve_worker
+from .pve.worker import run_in_pve_worker, set_pve_executor
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -32,16 +31,18 @@ background_logger.setLevel(logging.DEBUG)
 async def lifespan(app: FastAPI):
     db_init()
 
-    app_state.executor = ThreadPoolExecutor(
+    executor = ThreadPoolExecutor(
         max_workers=settings.n_workers, thread_name_prefix="pve-worker"
     )
+    app.state.executor = executor
+    set_pve_executor(executor)
     logger.debug(f"started thread pool with {settings.n_workers} workers")
 
-    yield
+    yield {"executor": executor}
 
     logger.debug("shutting down thread pool workers...")
-    if app_state.executor is not None:
-        app_state.executor.shutdown(wait=True, cancel_futures=True)
+    executor.shutdown(wait=True, cancel_futures=True)
+    set_pve_executor(None)
     logger.debug("stopped all workers")
 
 
