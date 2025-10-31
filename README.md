@@ -17,6 +17,7 @@ uv run hypercorn pve_multiexec:app --bind 0.0.0.0:8081 --reload
 * cachetools
 * FastAPI
 * hypercorn
+* pydantic-settings
 * python-dotenv
 * requests (since it's one of the optional backends for Proxmoxer, we have to add it manually)
 

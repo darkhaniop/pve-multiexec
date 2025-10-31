@@ -1,7 +1,7 @@
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, BeforeValidator, Field
 from sqlmodel import Session, select
 
@@ -68,10 +68,14 @@ def validate_and_prepare_exec_config(
 
 
 @router.get("/", response_model=list[ExecConfigResult])
-def get_exec_configs(session: SessionDep):
+def get_exec_configs(
+    session: SessionDep,
+    offset: int = Query(default=0, ge=0, description="Offset for pagination."),
+    limit: int = Query(default=50, ge=1, le=100, description="Limit for pagination."),
+):
     """Read a subset of ExecConfigs"""
 
-    exec_configs = session.exec(select(ExecConfig)).all()
+    exec_configs = session.exec(select(ExecConfig).offset(offset).limit(limit)).all()
     return exec_configs
 
 

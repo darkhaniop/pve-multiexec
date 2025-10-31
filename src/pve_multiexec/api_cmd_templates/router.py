@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlmodel import select
 
 from ..db import SessionDep
@@ -8,8 +8,13 @@ router = APIRouter()
 
 
 @router.get("/", response_model=list[CmdTemplate])
-def get_cmd_templates(session: SessionDep):
-    cmd_templates = session.exec(select(CmdTemplate)).all()
+def get_cmd_templates(
+    session: SessionDep,
+    offset: int = Query(default=0, ge=0, description="Offset for pagination."),
+    limit: int = Query(default=50, ge=1, le=100, description="Limit for pagination."),
+):
+    """Read a list of CmdTemplates."""
+    cmd_templates = session.exec(select(CmdTemplate).offset(offset).limit(limit)).all()
     return cmd_templates
 
 

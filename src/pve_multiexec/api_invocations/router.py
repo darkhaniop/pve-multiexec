@@ -1,5 +1,5 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
-from sqlmodel import select
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from sqlmodel import col, select
 
 from ..api_cmd_templates.models import CmdTemplate
 from ..api_exec_configs.router import ExecConfigResult, get_exec_config_by_id
@@ -12,10 +12,19 @@ router = APIRouter()
 
 
 @router.get("/", response_model=list[InvocationResponse])
-def get_invocations(session: LogsSessionDep):
+def get_invocations(
+    session: LogsSessionDep,
+    offset: int = Query(default=0, ge=0, description="Offset for pagination."),
+    limit: int = Query(default=50, ge=1, le=100, description="Limit for pagination."),
+):
     """Read a subset of Invocations"""
 
-    db_invocations = session.exec(select(Invocation)).all()
+    db_invocations = session.exec(
+        select(Invocation)
+        .order_by(col(Invocation.id).desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
     return db_invocations
 
 
