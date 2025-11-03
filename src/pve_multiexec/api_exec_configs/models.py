@@ -13,11 +13,3 @@ class ExecConfigBase(SQLModel):
 
 class ExecConfig(ExecConfigBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
-
-
-def db_init():
-    """Call this before creating the SQLite database
-
-    This ensures that SQLModel metadata is populated.
-    """
-    pass

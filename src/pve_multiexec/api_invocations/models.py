@@ -33,11 +33,3 @@ class Invocation(InvocationBase, table=True):
             server_onupdate=text("CURRENT_TIMESTAMP"),
         ),
     )
-
-
-def db_init():
-    """Call this before creating the SQLite database
-
-    This ensures that SQLModel metadata is populated.
-    """
-    pass
