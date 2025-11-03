@@ -5,9 +5,9 @@ from fastapi import Depends
 from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, create_engine
 
-from .api_cmd_templates.models import db_init as cmd_templates_db_init
-from .api_exec_configs.models import db_init as exec_configs_db_init
-from .api_invocations.models import db_init as invocations_db_init
+from .api_cmd_templates.models import CmdTemplate
+from .api_exec_configs.models import ExecConfig
+from .api_invocations.models import Invocation
 from .config import settings
 
 
@@ -17,9 +17,8 @@ class _LocalState:
 
 
 def db_init():
-    cmd_templates_db_init()
-    exec_configs_db_init()
-    invocations_db_init()
+    # Ensure models are registered in SQLModel metadata
+    _ = (CmdTemplate, ExecConfig, Invocation)
 
     sqlite_file_name = settings.db_file
     sqlite_url = f"sqlite:///{sqlite_file_name}"
