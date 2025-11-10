@@ -13,13 +13,28 @@ uv run hypercorn pve_multiexec:app --bind 0.0.0.0:8081 --reload
 
 ## Preliminary Dependencies
 
-* Proxmoxer
 * cachetools
 * FastAPI
 * hypercorn
+* Proxmoxer
 * pydantic-settings
 * python-dotenv
 * requests (since it's one of the optional backends for Proxmoxer, we have to add it manually)
+* sqlmodel
+
+## Development
+
+### Dev-Dependencies
+
+* httpx
+* pytest
+* pytest-asyncio
+
+### Testing
+
+```shell
+uv run pytest
+```
 
 ## Next Steps
 
@@ -33,15 +48,14 @@ Higher priority:
 
 Lower priority:
 
-* [ ] Implement more flexible filtering methods for VM selection.
+* [x] Implement more flexible filtering methods for VM selection.
 * [x] Implement custom commands (e.g., view system info). `pve-multiexec` is now more generic.
 * [x] Run 2-3 workers, so that `drop_caches` POST requests can be sent in parallel.
 * [ ] Rate-limit calls to the upstream server with `cachetools`.
 * [ ] Add the CLI script
-* [ ] Add CLI params to set
-    * [ ] the number of workers
-    * [ ] the usual host and port
-    * [ ] cache TTL
+* [x] Add CLI params to set (done when switched to `pydantic-settings`)
+    * [x] the number of workers
+    * [x] the usual host and port
     * etc.
 
 Superseded:
