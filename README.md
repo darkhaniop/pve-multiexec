@@ -5,6 +5,8 @@
 
 A simple utility that provides a RESTful API for batch execting commands in Proxmox VE quest VMs with `qemu-quest-agent` (e.g., `drop_caches` in non-essential guests).
 
+![pve-multiexec-routes](./images/multiexec-routes.png)
+
 ## Running a Dev Server
 
 ```shell
